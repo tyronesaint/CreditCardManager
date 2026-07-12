@@ -60,8 +60,7 @@ class ActivityViewModel @Inject constructor(
                     val transactions = if (activity.level == ActivityLevel.BANK) {
                         activity.bankId?.let { bid ->
                             cards.values.filter { it.bankId == bid }
-                                .map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
-                                .flatten()
+                                .flatMap { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
                         } ?: emptyList()
                     } else {
                         activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
@@ -91,8 +90,7 @@ class ActivityViewModel @Inject constructor(
             val transactions = if (activity.level == ActivityLevel.BANK) {
                 activity.bankId?.let { bid ->
                     cards.values.filter { it.bankId == bid }
-                        .map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
-                        .flatten()
+                        .flatMap { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
                 } ?: emptyList()
             } else {
                 activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
