@@ -77,13 +77,17 @@ class TransactionViewModel @Inject constructor(
                         else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
                     }
                     val existingTransactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
-                        activity.bankId?.let { bid ->
-                            val bankCards = cards.values.filter { it.bankId == bid }
-                            val lists: List<List<Transaction>> = bankCards.map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
-                            lists.flatten()
-                        } ?: emptyList()
+                        if (activity.bankId != null) {
+                            buildList {
+                                for (c in cards.values) {
+                                    if (c.bankId == activity.bankId) {
+                                        addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
+                                    }
+                                }
+                            }
+                        } else emptyList()
                     } else {
-                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
+                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
                     }
                     val allTransactions = existingTransactions + transaction
                     val progress = ActivityCalculator.calculateProgress(activity, allTransactions)

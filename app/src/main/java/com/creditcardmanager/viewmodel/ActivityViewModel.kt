@@ -58,13 +58,17 @@ class ActivityViewModel @Inject constructor(
                         else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
                     }
                     val transactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
-                        activity.bankId?.let { bid ->
-                            val bankCards = cards.values.filter { it.bankId == bid }
-                            val lists: List<List<Transaction>> = bankCards.map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
-                            lists.flatten()
-                        } ?: emptyList()
+                        if (activity.bankId != null) {
+                            buildList {
+                                for (c in cards.values) {
+                                    if (c.bankId == activity.bankId) {
+                                        addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
+                                    }
+                                }
+                            }
+                        } else emptyList()
                     } else {
-                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
+                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
                     }
                     val progress = ActivityCalculator.calculateProgress(activity, transactions)
                     ActivityWithProgress(activity, progress, activity.cardId?.let { cards[it]?.name }, activity.bankId?.let { banks[it]?.name })
@@ -89,13 +93,17 @@ class ActivityViewModel @Inject constructor(
                 else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
             }
             val transactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
-                activity.bankId?.let { bid ->
-                    val bankCards = cards.values.filter { it.bankId == bid }
-                    val lists: List<List<Transaction>> = bankCards.map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
-                    lists.flatten()
-                } ?: emptyList()
+                if (activity.bankId != null) {
+                    buildList {
+                        for (c in cards.values) {
+                            if (c.bankId == activity.bankId) {
+                                addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
+                            }
+                        }
+                    }
+                } else emptyList()
             } else {
-                activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
+                activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
             }
             val progress = ActivityCalculator.calculateProgress(activity, transactions)
             _selectedActivity.value = ActivityDetail(activity, progress, activity.cardId?.let { cards[it]?.name }, activity.bankId?.let { banks[it]?.name }, transactions)
