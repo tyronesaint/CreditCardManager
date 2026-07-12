@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/dashboardFragment">
+
+    <fragment android:id="@+id/dashboardFragment" android:name="com.creditcardmanager.ui.dashboard.DashboardFragment" android:label="首页" />
+    <fragment android:id="@+id/cardsFragment" android:name="com.creditcardmanager.ui.cards.CardsFragment" android:label="卡片" />
+    <fragment android:id="@+id/activitiesFragment" android:name="com.creditcardmanager.ui.activities.ActivitiesFragment" android:label="活动" />
+    <fragment android:id="@+id/settingsFragment" android:name="com.creditcardmanager.ui.settings.SettingsFragment" android:label="设置" />
+    <fragment android:id="@+id/addTransactionFragment" android:name="com.creditcardmanager.ui.transactions.AddTransactionFragment" android:label="录入消费" />
+    <fragment android:id="@+id/cardDetailFragment" android:name="com.creditcardmanager.ui.cards.CardDetailFragment" android:label="卡片详情">
+        <argument android:name="cardId" app:argType="string" />
+    </fragment>
+
+    <action android:id="@+id/action_dashboard_to_addTransaction" app:destination="@id/addTransactionFragment" />
+    <action android:id="@+id/action_dashboard_to_cards" app:destination="@id/cardsFragment" />
+    <action android:id="@+id/action_dashboard_to_activities" app:destination="@id/activitiesFragment" />
+</navigation>
