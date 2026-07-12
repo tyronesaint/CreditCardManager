@@ -48,9 +48,14 @@ class TransactionViewModel @Inject constructor(
             val interestFree = if (card != null) InterestFreeCalculator.calculate(card, spendDate).interestFreeDays else 0
             val tempTransaction = Transaction(id = "preview", cardId = cardId, amount = amount, spendDate = spendDate, tagId = tagId)
             val activities = activityRepo.getAllActiveActivities().first()
-            val cards = cardRepo.getAllCards().first().associateBy { it.id }
+            val allCards = cardRepo.getAllCards().first().associateBy { it.id }
             val matched = activities.mapNotNull { activity ->
-                val activityCard = if (activity.level == ActivityLevel.CARD) activity.cardId?.let { cards[it] } else null
+                // 银行级活动：需要传入该交易对应的卡片做 bankId 校验
+                val activityCard = if (activity.level == ActivityLevel.BANK) {
+                    allCards[cardId]  // 用当前交易选中的卡片
+                } else if (activity.level == ActivityLevel.CARD) {
+                    activity.cardId?.let { allCards[it] }
+                } else null
                 if (ActivityMatcher.matchTransaction(tempTransaction, activity, activityCard)) {
                     MatchedActivity(activity, ActivityCalculator.getCashbackPreview(activity, tempTransaction))
                 } else null
@@ -63,14 +68,19 @@ class TransactionViewModel @Inject constructor(
         viewModelScope.launch {
             transactionRepo.saveTransaction(transaction)
             val activities = activityRepo.getAllActiveActivities().first()
-            val cards = cardRepo.getAllCards().first().associateBy { it.id }
+            val allCards = cardRepo.getAllCards().first().associateBy { it.id }
             val today = LocalDate.now()
             for (activity in activities) {
-                val activityCard = if (activity.level == ActivityLevel.CARD) activity.cardId?.let { cards[it] } else null
+                // 银行级活动：传入该交易对应的卡片做 bankId 校验
+                val activityCard = if (activity.level == ActivityLevel.BANK) {
+                    allCards[transaction.cardId]
+                } else if (activity.level == ActivityLevel.CARD) {
+                    activity.cardId?.let { allCards[it] }
+                } else null
                 if (ActivityMatcher.matchTransaction(transaction, activity, activityCard)) {
                     val (start, end) = when (activity.periodType) {
                         PeriodType.BIND_STATEMENT -> {
-                            val c = activity.cardId?.let { cards[it] }
+                            val c = activity.cardId?.let { allCards[it] }
                             if (c != null) DateUtils.getStatementPeriod(c.statementDay, today)
                             else DateUtils.getPeriodStart(PeriodType.NATURAL_MONTH, today) to DateUtils.getPeriodEnd(PeriodType.NATURAL_MONTH, today)
                         }
@@ -79,7 +89,7 @@ class TransactionViewModel @Inject constructor(
                     val existingTransactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
                         if (activity.bankId != null) {
                             buildList {
-                                for (c in cards.values) {
+                                for (c in allCards.values) {
                                     if (c.bankId == activity.bankId) {
                                         addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
                                     }

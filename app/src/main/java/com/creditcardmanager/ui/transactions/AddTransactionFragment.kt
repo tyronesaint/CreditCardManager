@@ -18,6 +18,7 @@ import com.creditcardmanager.viewmodel.TransactionViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import java.util.Calendar
 
 @AndroidEntryPoint
@@ -83,30 +84,55 @@ class AddTransactionFragment : Fragment() {
         ).show()
     }
 
+    private fun parseDateSafe(dateStr: String?): LocalDate? {
+        return try {
+            LocalDate.parse(dateStr)
+        } catch (e: DateTimeParseException) {
+            Toast.makeText(requireContext(), "日期格式错误，请使用 yyyy-MM-dd", Toast.LENGTH_SHORT).show()
+            null
+        }
+    }
+
     private fun previewTransaction() {
         val cardPos = binding.spinnerCard.selectedItemPosition
-        val amount = binding.editAmount.text.toString().toDoubleOrNull() ?: return
+        val amount = binding.editAmount.text.toString().toDoubleOrNull()
+        if (amount == null || amount <= 0) {
+            Toast.makeText(requireContext(), "请输入有效金额", Toast.LENGTH_SHORT).show()
+            return
+        }
         val dateStr = binding.editDate.text.toString()
+        val spendDate = parseDateSafe(dateStr) ?: return
         val tagPos = binding.spinnerTag.selectedItemPosition
-        viewModel.previewTransaction(
-            cardId = viewModel.cards.value.getOrNull(cardPos)?.id ?: return,
-            amount = amount, spendDate = LocalDate.parse(dateStr),
-            tagId = viewModel.tags.value.getOrNull(tagPos)?.id ?: return
-        )
+        val cardId = viewModel.cards.value.getOrNull(cardPos)?.id
+        val tagId = viewModel.tags.value.getOrNull(tagPos)?.id
+        if (cardId == null || tagId == null) {
+            Toast.makeText(requireContext(), "请选择卡片和标签", Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewModel.previewTransaction(cardId = cardId, amount = amount, spendDate = spendDate, tagId = tagId)
     }
 
     private fun saveTransaction() {
         val cardPos = binding.spinnerCard.selectedItemPosition
-        val amount = binding.editAmount.text.toString().toDoubleOrNull() ?: return
+        val amount = binding.editAmount.text.toString().toDoubleOrNull()
+        if (amount == null || amount <= 0) {
+            Toast.makeText(requireContext(), "请输入有效金额", Toast.LENGTH_SHORT).show()
+            return
+        }
         val dateStr = binding.editDate.text.toString()
+        val spendDate = parseDateSafe(dateStr) ?: return
         val tagPos = binding.spinnerTag.selectedItemPosition
+        val cardId = viewModel.cards.value.getOrNull(cardPos)?.id
+        val tagId = viewModel.tags.value.getOrNull(tagPos)?.id
+        if (cardId == null || tagId == null) {
+            Toast.makeText(requireContext(), "请选择卡片和标签", Toast.LENGTH_SHORT).show()
+            return
+        }
         val channel = binding.editChannel.text.toString().takeIf { it.isNotBlank() }
         val note = binding.editNote.text.toString().takeIf { it.isNotBlank() }
         viewModel.createTransaction(
-            cardId = viewModel.cards.value.getOrNull(cardPos)?.id ?: return,
-            amount = amount, spendDate = LocalDate.parse(dateStr),
-            tagId = viewModel.tags.value.getOrNull(tagPos)?.id ?: return,
-            channel = channel, note = note
+            cardId = cardId, amount = amount, spendDate = spendDate,
+            tagId = tagId, channel = channel, note = note
         )
         Toast.makeText(requireContext(), "消费录入成功", Toast.LENGTH_SHORT).show()
         findNavController().popBackStack()

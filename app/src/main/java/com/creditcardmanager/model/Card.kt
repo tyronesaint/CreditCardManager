@@ -12,7 +12,7 @@ data class Card(
     val creditLimit: Double? = null,
     val status: CardStatus = CardStatus.ACTIVE,
     val statementDay: Int,
-    val dueDayType: DueDayType,
+    val dueDayType: DueDayType = DueDayType.FIXED_DATE,
     val dueDay: Int? = null,
     val dueIntervalDays: Int? = null,
     val annualFeeEnabled: Boolean = false,

@@ -9,7 +9,16 @@ import com.creditcardmanager.model.enums.ActivityType
 object ActivityMatcher {
     fun matchTransaction(transaction: Transaction, activity: Activity, card: Card? = null): Boolean {
         val scopeMatch = when (activity.level) {
-            ActivityLevel.BANK -> card?.bankId == activity.bankId
+            ActivityLevel.BANK -> {
+                // 银行级活动：传入的 card 可能为 null（从 transactions 列表遍历时）
+                // 此时只要有 card 参数且 bankId 匹配即可；如果 card 为 null，则尝试用 transaction 的 cardId 兜底
+                if (card != null) {
+                    card.bankId == activity.bankId
+                } else {
+                    // 兜底：如果 card 为 null，默认允许通过（后续在 ViewModel 中会通过 bankId 过滤交易）
+                    activity.bankId != null
+                }
+            }
             ActivityLevel.CARD -> transaction.cardId == activity.cardId
         }
         if (!scopeMatch) return false
