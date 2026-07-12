@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.creditcardmanager.data.repository.*
 import com.creditcardmanager.model.*
 import com.creditcardmanager.model.enums.ActivityLevel
+import com.creditcardmanager.model.enums.PeriodType
 import com.creditcardmanager.utils.ActivityCalculator
 import com.creditcardmanager.utils.ActivityMatcher
 import com.creditcardmanager.utils.DateUtils
 import com.creditcardmanager.utils.IdGenerator
+import com.creditcardmanager.utils.InterestFreeCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -75,9 +77,15 @@ class TransactionViewModel @Inject constructor(
                         else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
                     }
                     val existingTransactions = if (activity.level == ActivityLevel.BANK) {
-                        activity.bankId?.let { bid -> cards.values.filter { it.bankId == bid }.flatMap { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() } } ?: emptyList()
-                    } else { activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList() }
-                    val allTransactions = existingTransactions + transaction
+                        activity.bankId?.let { bid ->
+                            cards.values.filter { it.bankId == bid }
+                                .map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
+                                .flatten()
+                        } ?: emptyList()
+                    } else {
+                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
+                    }
+                    val allTransactions = existingTransactions.toMutableList().apply { add(transaction) }
                     val progress = ActivityCalculator.calculateProgress(activity, allTransactions)
                     progressRepo.saveProgress(progress)
                 }

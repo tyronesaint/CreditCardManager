@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creditcardmanager.data.repository.*
 import com.creditcardmanager.model.*
+import com.creditcardmanager.utils.ActivityCalculator
 import com.creditcardmanager.utils.DateUtils
 import com.creditcardmanager.utils.InterestFreeCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel

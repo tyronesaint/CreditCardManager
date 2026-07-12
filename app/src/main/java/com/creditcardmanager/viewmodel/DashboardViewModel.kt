@@ -68,7 +68,7 @@ class DashboardViewModel @Inject constructor(
                 }
                 val transactions = if (activity.level == ActivityLevel.BANK) {
                     val bankCards = cards.filter { it.bankId == activity.bankId }
-                    bankCards.flatMap { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
+                    bankCards.map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }.flatten()
                 } else {
                     activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
                 }
