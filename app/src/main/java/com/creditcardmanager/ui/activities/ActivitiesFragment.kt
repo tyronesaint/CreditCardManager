@@ -12,7 +12,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -35,8 +34,7 @@ class ActivitiesFragment : Fragment() {
     private val adapter by lazy {
         ActivityAdapter(
             onItemClick = { activity ->
-                val action = ActivitiesFragmentDirections.actionActivitiesToActivityDetail(activity.activity.id)
-                findNavController().navigate(action)
+                // 点击进详情
             },
             onItemLongClick = { activityWithProgress ->
                 showActivityActions(activityWithProgress)
@@ -106,15 +104,59 @@ class ActivitiesFragment : Fragment() {
             .setTitle(activity.name)
             .setItems(options) { _, which ->
                 when (options[which]) {
-                    "编辑活动" -> {
-                        val action = ActivitiesFragmentDirections.actionActivitiesToActivityDetail(activity.id)
-                        findNavController().navigate(action)
-                    }
+                    "编辑活动" -> showEditDialog(activity)
                     "归档活动" -> viewModel.archiveActivity(activity.id)
                     "恢复活动" -> viewModel.unarchiveActivity(activity.id)
                     "删除活动", "彻底删除" -> confirmDelete(activity)
                 }
             }
+            .show()
+    }
+
+    private fun showEditDialog(activity: com.creditcardmanager.model.Activity) {
+        val layout = android.widget.LinearLayout(requireContext()).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 16)
+        }
+        val editName = android.widget.EditText(requireContext()).apply {
+            setText(activity.name)
+            hint = "活动名称"
+        }
+        val editTarget = android.widget.EditText(requireContext()).apply {
+            val value = when (activity.type) {
+                com.creditcardmanager.model.enums.ActivityType.AMOUNT_TARGET -> activity.targetAmount?.toString() ?: ""
+                com.creditcardmanager.model.enums.ActivityType.COUNT_TARGET -> activity.targetCount?.toString() ?: ""
+                com.creditcardmanager.model.enums.ActivityType.CASHBACK_RATE -> activity.cashbackRate?.let { (it * 100).toString() } ?: ""
+                com.creditcardmanager.model.enums.ActivityType.CONSECUTIVE_DAYS -> activity.targetCount?.toString() ?: ""
+                else -> ""
+            }
+            setText(value)
+            hint = "目标值"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+        layout.addView(editName)
+        layout.addView(editTarget)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("编辑活动")
+            .setView(layout)
+            .setPositiveButton("保存") { _, _ ->
+                val newName = editName.text.toString().trim()
+                val newTarget = editTarget.text.toString().toDoubleOrNull()
+                if (newName.isEmpty()) {
+                    Toast.makeText(requireContext(), "名称不能为空", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val updated = activity.copy(
+                    name = newName,
+                    targetAmount = if (activity.type == com.creditcardmanager.model.enums.ActivityType.AMOUNT_TARGET) newTarget else activity.targetAmount,
+                    targetCount = if (activity.type == com.creditcardmanager.model.enums.ActivityType.COUNT_TARGET || activity.type == com.creditcardmanager.model.enums.ActivityType.CONSECUTIVE_DAYS) newTarget?.toInt() else activity.targetCount,
+                    cashbackRate = if (activity.type == com.creditcardmanager.model.enums.ActivityType.CASHBACK_RATE) newTarget?.let { it / 100 } else activity.cashbackRate
+                )
+                viewModel.updateActivity(updated)
+                Toast.makeText(requireContext(), "已更新", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
             .show()
     }
 

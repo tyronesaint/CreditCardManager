@@ -57,9 +57,6 @@
         <argument
             android:name="cardId"
             app:argType="string" />
-        <action
-            android:id="@+id/action_cardDetail_to_activityDetail"
-            app:destination="@id/activityDetailFragment" />
     </fragment>
 
     <fragment

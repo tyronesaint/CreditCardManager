@@ -27,11 +27,7 @@ class CardDetailFragment : Fragment() {
     private val viewModel: CardViewModel by viewModels()
     private val args: CardDetailFragmentArgs by navArgs()
     private val activityAdapter by lazy {
-        ActivityAdapter(
-            onItemClick = { activityWithProgress ->
-                // 导航到活动详情
-            }
-        )
+        ActivityAdapter()
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

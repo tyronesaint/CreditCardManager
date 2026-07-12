@@ -13,7 +13,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.creditcardmanager.databinding.FragmentCardDetailBinding
 import com.creditcardmanager.model.Activity
@@ -122,7 +121,7 @@ class ActivityDetailFragment : Fragment() {
             .setMessage("删除后将无法恢复，确定删除「${activity.name}」？")
             .setPositiveButton("删除") { _, _ ->
                 viewModel.deleteActivity(activity)
-                findNavController().popBackStack()
+                requireActivity().onBackPressedDispatcher.onBackPressed()
             }
             .setNegativeButton("取消", null)
             .show()
