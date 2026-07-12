@@ -11,11 +11,9 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.creditcardmanager.databinding.FragmentPaymentRemindersBinding
-import com.creditcardmanager.model.PaymentDue
 import com.creditcardmanager.viewmodel.PaymentRemindersViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -39,7 +37,6 @@ class PaymentRemindersFragment : Fragment() {
                     .show()
             },
             onItemClick = { payment ->
-                // Navigate to card detail
                 val action = PaymentRemindersFragmentDirections.actionPaymentRemindersToCardDetail(payment.cardId)
                 findNavController().navigate(action)
             }

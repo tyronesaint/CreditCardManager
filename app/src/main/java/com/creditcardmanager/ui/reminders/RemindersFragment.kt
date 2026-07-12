@@ -25,9 +25,10 @@ class RemindersFragment : Fragment() {
     private var _binding: FragmentRemindersBinding? = null
     private val binding get() = _binding!!
     private val viewModel: ReminderViewModel by viewModels()
-    private val adapter by lazy {
+
+    private val adapter: ReminderAdapter by lazy {
         ReminderAdapter(
-            onToggle = { reminder, enabled ->
+            onToggle = { reminder: Reminder, enabled: Boolean ->
                 val action = if (enabled) "启用" else "禁用"
                 AlertDialog.Builder(requireContext())
                     .setTitle("确认${action}")
@@ -37,14 +38,14 @@ class RemindersFragment : Fragment() {
                         Toast.makeText(requireContext(), "已${action}", Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton("取消") { _, _ ->
-                        adapter.notifyDataSetChanged() // Refresh to revert switch
+                        adapter.notifyDataSetChanged()
                     }
                     .setOnCancelListener {
                         adapter.notifyDataSetChanged()
                     }
                     .show()
             },
-            onComplete = { reminder, completed ->
+            onComplete = { reminder: Reminder, completed: Boolean ->
                 if (completed) {
                     AlertDialog.Builder(requireContext())
                         .setTitle("标记完成")
@@ -61,14 +62,13 @@ class RemindersFragment : Fragment() {
                         }
                         .show()
                 } else {
-                    // Allow un-completing without confirmation for better UX
                     viewModel.setCompleted(reminder.id, false)
                 }
             },
-            onDelete = { reminder ->
+            onDelete = { reminder: Reminder ->
                 confirmDelete(reminder)
             },
-            onLongClick = { reminder ->
+            onLongClick = { reminder: Reminder ->
                 showReminderActions(reminder)
             }
         )
@@ -84,7 +84,7 @@ class RemindersFragment : Fragment() {
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
         binding.fabAddReminder.setOnClickListener {
-            AddReminderDialog { reminder ->
+            AddReminderDialog { reminder: Reminder ->
                 viewModel.addReminder(reminder)
                 Toast.makeText(requireContext(), "提醒已添加", Toast.LENGTH_SHORT).show()
             }.show(childFragmentManager, "add_reminder")
@@ -106,7 +106,6 @@ class RemindersFragment : Fragment() {
     }
 
     private fun showEditReminderDialog(reminder: Reminder) {
-        // Reuse AddReminderDialog but with pre-filled data
         val layout = android.widget.LinearLayout(requireContext()).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding(48, 32, 48, 16)
@@ -142,7 +141,7 @@ class RemindersFragment : Fragment() {
                 val updated = reminder.copy(
                     title = title,
                     remindTimes = listOf(com.creditcardmanager.model.ReminderTime(offsetDays = offset, timeOfDay = time)),
-                    completed = false // Reset completion on edit
+                    completed = false
                 )
                 viewModel.updateReminder(updated)
                 Toast.makeText(requireContext(), "已更新", Toast.LENGTH_SHORT).show()
@@ -190,7 +189,7 @@ class RemindersFragment : Fragment() {
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.reminders.collect { list ->
+                viewModel.reminders.collect { list: List<Reminder> ->
                     adapter.submitList(list)
                 }
             }

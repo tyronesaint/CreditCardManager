@@ -12,6 +12,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -35,7 +36,6 @@ class ActivitiesFragment : Fragment() {
     private val adapter by lazy {
         ActivityAdapter(
             onItemClick = { activityWithProgress ->
-                // Navigate to detail
                 val action = ActivitiesFragmentDirections.actionActivitiesToActivityDetail(activityWithProgress.activity.id)
                 findNavController().navigate(action)
             },

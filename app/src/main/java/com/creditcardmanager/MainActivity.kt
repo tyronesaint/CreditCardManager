@@ -36,9 +36,9 @@ class MainActivity : AppCompatActivity() {
                 val handled = androidx.navigation.ui.NavigationUI.onNavDestinationSelected(item, navController)
                 if (handled) {
                     // Pop up to start destination to avoid back stack buildup
-                    val startDestination = navController.graph.findStartDestination().id
-                    if (currentDestination != null && currentDestination != startDestination) {
-                        navController.popBackStack(startDestination, false)
+                    val startId = navController.graph.startDestinationId
+                    if (currentDestination != null && currentDestination != startId) {
+                        navController.popBackStack(startId, false)
                     }
                 }
                 handled
