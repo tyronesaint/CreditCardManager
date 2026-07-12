@@ -27,7 +27,14 @@ class CardDetailFragment : Fragment() {
     private val viewModel: CardViewModel by viewModels()
     private val args: CardDetailFragmentArgs by navArgs()
     private val activityAdapter by lazy {
-        ActivityAdapter()
+        ActivityAdapter(
+            onItemClick = { activityWithProgress ->
+                // Navigate to activity detail
+            },
+            onItemLongClick = { activityWithProgress ->
+                // Show activity actions
+            }
+        )
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

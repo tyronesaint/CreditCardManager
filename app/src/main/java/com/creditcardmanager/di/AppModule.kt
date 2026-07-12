@@ -3,6 +3,7 @@ package com.creditcardmanager.di
 import android.content.Context
 import androidx.room.Room
 import com.creditcardmanager.data.local.AppDatabase
+import com.creditcardmanager.utils.AppSettings
 import com.creditcardmanager.utils.ExportImportManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -30,6 +31,8 @@ object AppModule {
             .registerTypeAdapter(LocalDateTime::class.java, LocalDateTimeTypeAdapter())
             .create()
     }
+    @Provides @Singleton
+    fun provideAppSettings(@ApplicationContext context: Context): AppSettings = AppSettings(context)
     @Provides @Singleton
     fun provideExportImportManager(@ApplicationContext context: Context): ExportImportManager = ExportImportManager(context)
     @Provides fun provideBankDao(db: AppDatabase) = db.bankDao()

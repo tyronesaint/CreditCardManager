@@ -6,7 +6,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.creditcardmanager.databinding.ItemPaymentBinding
 import com.creditcardmanager.model.PaymentDue
 
-class PaymentAdapter : RecyclerView.Adapter<PaymentAdapter.ViewHolder>() {
+class PaymentAdapter(
+    private val onItemClick: ((PaymentDue) -> Unit)? = null
+) : RecyclerView.Adapter<PaymentAdapter.ViewHolder>() {
     private var items: List<PaymentDue> = emptyList()
 
     fun submitList(list: List<PaymentDue>) {
@@ -31,6 +33,7 @@ class PaymentAdapter : RecyclerView.Adapter<PaymentAdapter.ViewHolder>() {
             binding.tvDueDate.text = "还款日: ${payment.dueDate}"
             binding.tvDaysRemaining.text = "${payment.daysRemaining}天后"
             binding.tvAmount.text = "¥${String.format("%.2f", payment.statementAmount)}"
+            binding.root.setOnClickListener { onItemClick?.invoke(payment) }
         }
     }
 }

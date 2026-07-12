@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.creditcardmanager.R
 import com.creditcardmanager.databinding.FragmentActivitiesBinding
 import com.creditcardmanager.ui.dialog.AddActivityDialog
+import com.creditcardmanager.ui.dialog.EditActivityDialog
 import com.creditcardmanager.viewmodel.ActivityViewModel
 import com.creditcardmanager.viewmodel.BankViewModel
 import com.creditcardmanager.viewmodel.CardViewModel
@@ -33,8 +34,10 @@ class ActivitiesFragment : Fragment() {
     private val cardViewModel: CardViewModel by viewModels()
     private val adapter by lazy {
         ActivityAdapter(
-            onItemClick = { activity ->
-                // 点击进详情
+            onItemClick = { activityWithProgress ->
+                // Navigate to detail
+                val action = ActivitiesFragmentDirections.actionActivitiesToActivityDetail(activityWithProgress.activity.id)
+                findNavController().navigate(action)
             },
             onItemLongClick = { activityWithProgress ->
                 showActivityActions(activityWithProgress)
@@ -96,7 +99,7 @@ class ActivitiesFragment : Fragment() {
     private fun showActivityActions(item: com.creditcardmanager.model.ActivityWithProgress) {
         val activity = item.activity
         val options = if (activity.isArchived) {
-            arrayOf("恢复活动", "彻底删除")
+            arrayOf("编辑活动", "恢复活动", "彻底删除")
         } else {
             arrayOf("编辑活动", "归档活动", "删除活动")
         }
@@ -105,8 +108,21 @@ class ActivitiesFragment : Fragment() {
             .setItems(options) { _, which ->
                 when (options[which]) {
                     "编辑活动" -> showEditDialog(activity)
-                    "归档活动" -> viewModel.archiveActivity(activity.id)
-                    "恢复活动" -> viewModel.unarchiveActivity(activity.id)
+                    "归档活动" -> {
+                        AlertDialog.Builder(requireContext())
+                            .setTitle("确认归档")
+                            .setMessage("归档后活动将暂停统计，确定归档「${activity.name}」？")
+                            .setPositiveButton("归档") { _, _ ->
+                                viewModel.archiveActivity(activity.id)
+                                Toast.makeText(requireContext(), "已归档", Toast.LENGTH_SHORT).show()
+                            }
+                            .setNegativeButton("取消", null)
+                            .show()
+                    }
+                    "恢复活动" -> {
+                        viewModel.unarchiveActivity(activity.id)
+                        Toast.makeText(requireContext(), "已恢复", Toast.LENGTH_SHORT).show()
+                    }
                     "删除活动", "彻底删除" -> confirmDelete(activity)
                 }
             }
@@ -114,50 +130,12 @@ class ActivitiesFragment : Fragment() {
     }
 
     private fun showEditDialog(activity: com.creditcardmanager.model.Activity) {
-        val layout = android.widget.LinearLayout(requireContext()).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(48, 32, 48, 16)
-        }
-        val editName = android.widget.EditText(requireContext()).apply {
-            setText(activity.name)
-            hint = "活动名称"
-        }
-        val editTarget = android.widget.EditText(requireContext()).apply {
-            val value = when (activity.type) {
-                com.creditcardmanager.model.enums.ActivityType.AMOUNT_TARGET -> activity.targetAmount?.toString() ?: ""
-                com.creditcardmanager.model.enums.ActivityType.COUNT_TARGET -> activity.targetCount?.toString() ?: ""
-                com.creditcardmanager.model.enums.ActivityType.CASHBACK_RATE -> activity.cashbackRate?.let { (it * 100).toString() } ?: ""
-                com.creditcardmanager.model.enums.ActivityType.CONSECUTIVE_DAYS -> activity.targetCount?.toString() ?: ""
-                else -> ""
-            }
-            setText(value)
-            hint = "目标值"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
-        layout.addView(editName)
-        layout.addView(editTarget)
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("编辑活动")
-            .setView(layout)
-            .setPositiveButton("保存") { _, _ ->
-                val newName = editName.text.toString().trim()
-                val newTarget = editTarget.text.toString().toDoubleOrNull()
-                if (newName.isEmpty()) {
-                    Toast.makeText(requireContext(), "名称不能为空", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val updated = activity.copy(
-                    name = newName,
-                    targetAmount = if (activity.type == com.creditcardmanager.model.enums.ActivityType.AMOUNT_TARGET) newTarget else activity.targetAmount,
-                    targetCount = if (activity.type == com.creditcardmanager.model.enums.ActivityType.COUNT_TARGET || activity.type == com.creditcardmanager.model.enums.ActivityType.CONSECUTIVE_DAYS) newTarget?.toInt() else activity.targetCount,
-                    cashbackRate = if (activity.type == com.creditcardmanager.model.enums.ActivityType.CASHBACK_RATE) newTarget?.let { it / 100 } else activity.cashbackRate
-                )
-                viewModel.updateActivity(updated)
-                Toast.makeText(requireContext(), "已更新", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        EditActivityDialog(
+            activity = activity,
+            bankViewModel = bankViewModel,
+            cardViewModel = cardViewModel,
+            activityViewModel = viewModel
+        ).show(childFragmentManager, "edit_activity")
     }
 
     private fun confirmDelete(activity: com.creditcardmanager.model.Activity) {
@@ -179,13 +157,35 @@ class ActivitiesFragment : Fragment() {
                 val position = vh.adapterPosition
                 val item = adapter.getItemAt(position)
                 if (item.activity.isArchived) {
-                    confirmDelete(item.activity)
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("删除活动")
+                        .setMessage("确定彻底删除「${item.activity.name}」？")
+                        .setPositiveButton("删除") { _, _ ->
+                            viewModel.deleteActivity(item.activity)
+                        }
+                        .setNegativeButton("取消") { _, _ ->
+                            adapter.notifyItemChanged(position)
+                        }
+                        .setOnCancelListener { adapter.notifyItemChanged(position) }
+                        .show()
                 } else {
                     AlertDialog.Builder(requireContext())
                         .setTitle(item.activity.name)
                         .setItems(arrayOf("归档", "删除")) { _, which ->
                             when (which) {
-                                0 -> viewModel.archiveActivity(item.activity.id)
+                                0 -> {
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("确认归档")
+                                        .setMessage("确定归档「${item.activity.name}」？")
+                                        .setPositiveButton("归档") { _, _ ->
+                                            viewModel.archiveActivity(item.activity.id)
+                                        }
+                                        .setNegativeButton("取消") { _, _ ->
+                                            adapter.notifyItemChanged(position)
+                                        }
+                                        .setOnCancelListener { adapter.notifyItemChanged(position) }
+                                        .show()
+                                }
                                 1 -> confirmDelete(item.activity)
                             }
                         }

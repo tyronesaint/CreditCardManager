@@ -5,8 +5,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -17,7 +15,10 @@ import androidx.navigation.fragment.navArgs
 import com.creditcardmanager.databinding.FragmentCardDetailBinding
 import com.creditcardmanager.model.Activity
 import com.creditcardmanager.model.enums.ActivityType
+import com.creditcardmanager.ui.dialog.EditActivityDialog
 import com.creditcardmanager.viewmodel.ActivityViewModel
+import com.creditcardmanager.viewmodel.BankViewModel
+import com.creditcardmanager.viewmodel.CardViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -26,6 +27,8 @@ class ActivityDetailFragment : Fragment() {
     private var _binding: FragmentCardDetailBinding? = null
     private val binding get() = _binding!!
     private val viewModel: ActivityViewModel by viewModels()
+    private val bankViewModel: BankViewModel by viewModels()
+    private val cardViewModel: CardViewModel by viewModels()
     private val args: ActivityDetailFragmentArgs by navArgs()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -53,8 +56,8 @@ class ActivityDetailFragment : Fragment() {
         val activity = detail.activity
         binding.tvCardName.text = activity.name
         binding.tvBankName.text = detail.bankName ?: detail.cardName ?: "通用活动"
-        binding.tvCreditLimit.text = "类型: ${activity.type.name}"
-        binding.tvStatementDay.text = "周期: ${activity.periodType.name}"
+        binding.tvCreditLimit.text = "类型: ${activity.type.toDisplayName()}"
+        binding.tvStatementDay.text = "周期: ${activity.periodType.toDisplayName()}"
         binding.tvDueDate.text = "目标: ${getTargetText(activity)}"
         binding.tvInterestFree.text = "进度: ${getProgressText(detail)}"
         binding.tvStatementAmount.text = "¥${String.format("%.2f", detail.progress.currentAmount)}"
@@ -67,6 +70,26 @@ class ActivityDetailFragment : Fragment() {
             showActionDialog(activity)
             true
         }
+    }
+
+    private fun ActivityType.toDisplayName(): String = when (this) {
+        ActivityType.AMOUNT_TARGET -> "金额达标"
+        ActivityType.COUNT_TARGET -> "笔数达标"
+        ActivityType.CASHBACK_RATE -> "比例返现"
+        ActivityType.CONTINUOUS_PERIOD -> "连续达标"
+        ActivityType.FIRST_SPEND -> "首刷奖"
+        ActivityType.CHECKIN_DAILY -> "每日签到"
+        ActivityType.CONSECUTIVE_DAYS -> "连续消费N天"
+        ActivityType.WEEKLY_CLAIM -> "每周固定领取"
+    }
+
+    private fun com.creditcardmanager.model.enums.PeriodType.toDisplayName(): String = when (this) {
+        com.creditcardmanager.model.enums.PeriodType.NATURAL_DAY -> "自然日"
+        com.creditcardmanager.model.enums.PeriodType.NATURAL_WEEK -> "自然周"
+        com.creditcardmanager.model.enums.PeriodType.NATURAL_MONTH -> "自然月"
+        com.creditcardmanager.model.enums.PeriodType.NATURAL_QUARTER -> "自然季度"
+        com.creditcardmanager.model.enums.PeriodType.BIND_STATEMENT -> "绑定账单周期"
+        com.creditcardmanager.model.enums.PeriodType.ONE_TIME -> "一次性"
     }
 
     private fun getTargetText(activity: Activity): String {
@@ -98,7 +121,7 @@ class ActivityDetailFragment : Fragment() {
 
     private fun showActionDialog(activity: Activity) {
         val options = if (activity.isArchived) {
-            arrayOf("恢复活动", "彻底删除")
+            arrayOf("编辑活动", "恢复活动", "彻底删除")
         } else {
             arrayOf("编辑活动", "归档活动", "删除活动")
         }
@@ -106,9 +129,29 @@ class ActivityDetailFragment : Fragment() {
             .setTitle(activity.name)
             .setItems(options) { _, which ->
                 when (options[which]) {
-                    "编辑活动" -> showEditDialog(activity)
-                    "归档活动" -> viewModel.archiveActivity(activity.id)
-                    "恢复活动" -> viewModel.unarchiveActivity(activity.id)
+                    "编辑活动" -> {
+                        EditActivityDialog(
+                            activity = activity,
+                            bankViewModel = bankViewModel,
+                            cardViewModel = cardViewModel,
+                            activityViewModel = viewModel
+                        ).show(childFragmentManager, "edit_activity")
+                    }
+                    "归档活动" -> {
+                        AlertDialog.Builder(requireContext())
+                            .setTitle("确认归档")
+                            .setMessage("确定归档「${activity.name}」？")
+                            .setPositiveButton("归档") { _, _ ->
+                                viewModel.archiveActivity(activity.id)
+                                Toast.makeText(requireContext(), "已归档", Toast.LENGTH_SHORT).show()
+                            }
+                            .setNegativeButton("取消", null)
+                            .show()
+                    }
+                    "恢复活动" -> {
+                        viewModel.unarchiveActivity(activity.id)
+                        Toast.makeText(requireContext(), "已恢复", Toast.LENGTH_SHORT).show()
+                    }
                     "删除活动", "彻底删除" -> confirmDelete(activity)
                 }
             }
@@ -122,53 +165,6 @@ class ActivityDetailFragment : Fragment() {
             .setPositiveButton("删除") { _, _ ->
                 viewModel.deleteActivity(activity)
                 requireActivity().onBackPressedDispatcher.onBackPressed()
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
-    private fun showEditDialog(activity: Activity) {
-        val layout = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 32, 48, 16)
-        }
-        val editName = EditText(requireContext()).apply {
-            setText(activity.name)
-            hint = "活动名称"
-        }
-        val editTarget = EditText(requireContext()).apply {
-            val value = when (activity.type) {
-                ActivityType.AMOUNT_TARGET -> activity.targetAmount?.toString() ?: ""
-                ActivityType.COUNT_TARGET -> activity.targetCount?.toString() ?: ""
-                ActivityType.CASHBACK_RATE -> activity.cashbackRate?.let { (it * 100).toString() } ?: ""
-                ActivityType.CONSECUTIVE_DAYS -> activity.targetCount?.toString() ?: ""
-                else -> ""
-            }
-            setText(value)
-            hint = "目标值"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
-        layout.addView(editName)
-        layout.addView(editTarget)
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("编辑活动")
-            .setView(layout)
-            .setPositiveButton("保存") { _, _ ->
-                val newName = editName.text.toString().trim()
-                val newTarget = editTarget.text.toString().toDoubleOrNull()
-                if (newName.isEmpty()) {
-                    Toast.makeText(requireContext(), "名称不能为空", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val updated = activity.copy(
-                    name = newName,
-                    targetAmount = if (activity.type == ActivityType.AMOUNT_TARGET) newTarget else activity.targetAmount,
-                    targetCount = if (activity.type == ActivityType.COUNT_TARGET || activity.type == ActivityType.CONSECUTIVE_DAYS) newTarget?.toInt() else activity.targetCount,
-                    cashbackRate = if (activity.type == ActivityType.CASHBACK_RATE) newTarget?.let { it / 100 } else activity.cashbackRate
-                )
-                viewModel.updateActivity(updated)
-                Toast.makeText(requireContext(), "已更新", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()

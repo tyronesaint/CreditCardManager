@@ -44,6 +44,12 @@ class DashboardFragment : Fragment() {
         binding.btnAddTransaction.setOnClickListener { findNavController().navigate(R.id.action_dashboard_to_addTransaction) }
         binding.btnViewAllCards.setOnClickListener { findNavController().navigate(R.id.cardsFragment) }
         binding.btnViewAllActivities.setOnClickListener { findNavController().navigate(R.id.activitiesFragment) }
+
+        // View all payments
+        binding.btnViewAllPayments.setOnClickListener {
+            findNavController().navigate(R.id.paymentRemindersFragment)
+        }
+
         observeData()
     }
 
@@ -61,6 +67,9 @@ class DashboardFragment : Fragment() {
         paymentAdapter.submitList(data.upcomingPayments)
         val allActivities = data.bankActivities + data.cardActivities
         activityAdapter.submitList(allActivities)
+
+        // Show/hide view all payments button based on data
+        binding.btnViewAllPayments.visibility = if (data.upcomingPayments.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
     override fun onDestroyView() {

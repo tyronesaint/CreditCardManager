@@ -26,6 +26,10 @@ class ReminderViewModel @Inject constructor(
         viewModelScope.launch { reminderRepo.saveReminder(reminder) }
     }
 
+    fun updateReminder(reminder: Reminder) {
+        viewModelScope.launch { reminderRepo.updateReminder(reminder) }
+    }
+
     fun deleteReminder(reminder: Reminder) {
         viewModelScope.launch { reminderRepo.deleteReminder(reminder) }
     }

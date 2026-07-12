@@ -96,6 +96,14 @@
                     android:layout_marginTop="8dp"
                     android:nestedScrollingEnabled="false" />
 
+                <Button
+                    android:id="@+id/btn_view_all_payments"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="查看全部还款提醒"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:visibility="gone" />
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

@@ -8,6 +8,7 @@ import com.creditcardmanager.model.enums.ActivityLevel
 import com.creditcardmanager.model.enums.CardStatus
 import com.creditcardmanager.model.enums.PeriodType
 import com.creditcardmanager.utils.ActivityCalculator
+import com.creditcardmanager.utils.AppSettings
 import com.creditcardmanager.utils.DateUtils
 import com.creditcardmanager.utils.InterestFreeCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +22,8 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val bankRepo: BankRepository, private val cardRepo: CardRepository,
     private val activityRepo: ActivityRepository, private val progressRepo: ActivityProgressRepository,
-    private val transactionRepo: TransactionRepository, private val reminderRepo: ReminderRepository
+    private val transactionRepo: TransactionRepository, private val reminderRepo: ReminderRepository,
+    private val appSettings: AppSettings
 ) : ViewModel() {
     private val _dashboardData = MutableStateFlow(DashboardData())
     val dashboardData: StateFlow<DashboardData> = _dashboardData.asStateFlow()
@@ -38,6 +40,7 @@ class DashboardViewModel @Inject constructor(
             val activities = activityRepo.getAllActiveActivities().first()
             val bankMap = banks.associateBy { it.id }
             val today = LocalDate.now()
+            val paymentDaysAhead = appSettings.paymentDaysAhead
 
             val topCards = cards.map { card ->
                 val info = InterestFreeCalculator.calculate(card)
@@ -52,7 +55,7 @@ class DashboardViewModel @Inject constructor(
                 PaymentDue(cardId = card.id, cardName = card.getDisplayName(), bankShortName = bankMap[card.bankId]?.shortName,
                     last4 = card.last4, statementAmount = amount, dueDate = dueDate,
                     daysRemaining = ChronoUnit.DAYS.between(today, dueDate).toInt())
-            }.filter { it.daysRemaining in 0..30 }.sortedBy { it.daysRemaining }.take(3)
+            }.filter { it.daysRemaining in 0..paymentDaysAhead }.sortedBy { it.daysRemaining }.take(3)
 
             val bankActivities = mutableListOf<ActivityWithProgress>()
             val cardActivities = mutableListOf<ActivityWithProgress>()

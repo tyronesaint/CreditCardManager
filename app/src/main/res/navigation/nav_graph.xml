@@ -46,6 +46,15 @@
         android:label="提醒" />
 
     <fragment
+        android:id="@+id/paymentRemindersFragment"
+        android:name="com.creditcardmanager.ui.reminders.PaymentRemindersFragment"
+        android:label="还款提醒">
+        <action
+            android:id="@+id/action_paymentReminders_to_cardDetail"
+            app:destination="@id/cardDetailFragment" />
+    </fragment>
+
+    <fragment
         android:id="@+id/addTransactionFragment"
         android:name="com.creditcardmanager.ui.transactions.AddTransactionFragment"
         android:label="录入消费" />

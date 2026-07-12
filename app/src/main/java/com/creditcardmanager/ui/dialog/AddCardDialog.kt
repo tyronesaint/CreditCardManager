@@ -101,7 +101,7 @@ class AddCardDialog(
         layout.addView(spinnerDueType)
         layout.addView(editDueDay)
 
-        // 加载银行列表
+        // Load bank list
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 bankViewModel.banks.collect { bankList ->
@@ -157,6 +157,7 @@ class AddCardDialog(
                     dueIntervalDays = if (dueDayType == DueDayType.FIXED_INTERVAL) dueDay else null
                 )
                 cardViewModel.addCard(card)
+                Toast.makeText(requireContext(), "卡片已添加", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .create()

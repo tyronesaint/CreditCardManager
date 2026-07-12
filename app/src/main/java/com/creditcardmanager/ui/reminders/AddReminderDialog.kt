@@ -26,33 +26,44 @@ class AddReminderDialog(
 
         val editTitle = EditText(requireContext()).apply {
             hint = "提醒标题（如：建行社保卡周三领券）"
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
 
         val spinnerType = Spinner(requireContext()).apply {
             adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line,
                 listOf("独立提醒", "活动提醒"))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
 
         val editOffset = EditText(requireContext()).apply {
             hint = "提前几天提醒（0=当天）"
             setText("0")
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
 
         val editTime = EditText(requireContext()).apply {
             hint = "提醒时间（如 09:00）"
             setText("09:00")
-        }
-
-        val editRepeat = EditText(requireContext()).apply {
-            hint = "重复规则：weekly=每周, monthly=每月, 空=一次性"
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
 
         layout.addView(editTitle)
         layout.addView(spinnerType)
         layout.addView(editOffset)
         layout.addView(editTime)
-        layout.addView(editRepeat)
 
         return AlertDialog.Builder(requireContext())
             .setTitle("添加提醒")

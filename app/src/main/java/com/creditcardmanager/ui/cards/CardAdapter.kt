@@ -6,13 +6,18 @@ import androidx.recyclerview.widget.RecyclerView
 import com.creditcardmanager.databinding.ItemCardBinding
 import com.creditcardmanager.model.Card
 
-class CardAdapter(private val onCardClick: (Card) -> Unit) : RecyclerView.Adapter<CardAdapter.ViewHolder>() {
+class CardAdapter(
+    private val onCardClick: (Card) -> Unit,
+    private val onCardLongClick: ((Card) -> Unit)? = null
+) : RecyclerView.Adapter<CardAdapter.ViewHolder>() {
     private var items: List<Card> = emptyList()
 
     fun submitList(list: List<Card>) {
         items = list
         notifyDataSetChanged()
     }
+
+    fun getItemAt(position: Int): Card = items[position]
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemCardBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -29,8 +34,12 @@ class CardAdapter(private val onCardClick: (Card) -> Unit) : RecyclerView.Adapte
         fun bind(card: Card) {
             binding.tvCardName.text = card.getDisplayName()
             binding.tvStatementDay.text = "账单日: ${card.statementDay}日"
-            binding.tvCreditLimit.text = card.creditLimit?.let { "额度 ¥$it" } ?: "额度 --"
+            binding.tvCreditLimit.text = card.creditLimit?.let { "额度 ¥${String.format("%.0f", it)}" } ?: "额度 --"
             binding.root.setOnClickListener { onCardClick(card) }
+            binding.root.setOnLongClickListener {
+                onCardLongClick?.invoke(card)
+                true
+            }
         }
     }
 }
