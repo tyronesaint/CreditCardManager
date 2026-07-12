@@ -7,7 +7,15 @@
     <fragment
         android:id="@+id/dashboardFragment"
         android:name="com.creditcardmanager.ui.dashboard.DashboardFragment"
-        android:label="首页" />
+        android:label="首页">
+        <action
+            android:id="@+id/action_dashboard_to_addTransaction"
+            app:destination="@id/addTransactionFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_cardDetail"
+            app:destination="@id/cardDetailFragment"
+            app:popUpTo="@id/dashboardFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/cardsFragment"
@@ -41,17 +49,4 @@
             android:name="cardId"
             app:argType="string" />
     </fragment>
-
-    <action
-        android:id="@+id/action_dashboard_to_addTransaction"
-        app:destination="@id/addTransactionFragment" />
-
-    <action
-        android:id="@+id/action_dashboard_to_cards"
-        app:destination="@id/cardsFragment" />
-
-    <action
-        android:id="@+id/action_dashboard_to_activities"
-        app:destination="@id/activitiesFragment" />
-
 </navigation>

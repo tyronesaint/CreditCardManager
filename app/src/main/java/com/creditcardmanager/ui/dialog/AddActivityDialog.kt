@@ -2,6 +2,7 @@ package com.creditcardmanager.ui.dialog
 
 import android.app.Dialog
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -73,7 +74,7 @@ class AddActivityDialog(
             adapter = ArrayAdapter(
                 requireContext(),
                 android.R.layout.simple_dropdown_item_1line,
-                listOf("金额达标", "笔数达标", "比例返现")
+                listOf("金额达标", "笔数达标", "比例返现", "连续达标", "首刷奖", "每日签到")
             )
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -94,8 +95,18 @@ class AddActivityDialog(
         }
 
         val editTarget = EditText(requireContext()).apply {
-            hint = "目标金额/笔数"
+            hint = "目标金额/笔数/比例"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
+        val editRequiredPeriods = EditText(requireContext()).apply {
+            hint = "连续几期"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -108,8 +119,8 @@ class AddActivityDialog(
         layout.addView(spinnerType)
         layout.addView(spinnerPeriod)
         layout.addView(editTarget)
+        layout.addView(editRequiredPeriods)
 
-        // 加载银行和卡片
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 bankViewModel.banks.collect { bankList ->
@@ -129,6 +140,25 @@ class AddActivityDialog(
         spinnerLevel.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
                 updateTargetSpinner(spinnerLevel, spinnerTarget)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        spinnerType.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val type = ActivityType.values()[position]
+                if (type == ActivityType.CONTINUOUS_PERIOD) {
+                    editRequiredPeriods.visibility = View.VISIBLE
+                    editTarget.hint = "每期目标金额/笔数"
+                } else {
+                    editRequiredPeriods.visibility = View.GONE
+                    editTarget.hint = when (type) {
+                        ActivityType.AMOUNT_TARGET -> "目标金额"
+                        ActivityType.COUNT_TARGET -> "目标笔数"
+                        ActivityType.CASHBACK_RATE -> "返现比例(%)"
+                        else -> "目标金额/笔数"
+                    }
+                }
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
@@ -157,11 +187,7 @@ class AddActivityDialog(
                     return@setPositiveButton
                 }
 
-                val type = when (spinnerType.selectedItemPosition) {
-                    0 -> ActivityType.AMOUNT_TARGET
-                    1 -> ActivityType.COUNT_TARGET
-                    else -> ActivityType.CASHBACK_RATE
-                }
+                val type = ActivityType.values()[spinnerType.selectedItemPosition]
 
                 val periodType = when (spinnerPeriod.selectedItemPosition) {
                     0 -> PeriodType.NATURAL_MONTH
@@ -171,6 +197,9 @@ class AddActivityDialog(
                 }
 
                 val targetValue = editTarget.text.toString().toDoubleOrNull()
+                val requiredPeriods = if (type == ActivityType.CONTINUOUS_PERIOD) {
+                    editRequiredPeriods.text.toString().toIntOrNull() ?: 1
+                } else null
 
                 val activity = Activity(
                     id = IdGenerator.generateActivityId(),
@@ -183,6 +212,7 @@ class AddActivityDialog(
                     targetAmount = if (type == ActivityType.AMOUNT_TARGET) targetValue else null,
                     targetCount = if (type == ActivityType.COUNT_TARGET) targetValue?.toInt() else null,
                     cashbackRate = if (type == ActivityType.CASHBACK_RATE) targetValue?.let { it / 100 } else null,
+                    requiredPeriods = requiredPeriods,
                     filter = ActivityFilter(),
                     reward = ActivityReward(rewardType = RewardType.NONE)
                 )

@@ -1,5 +1,6 @@
 package com.creditcardmanager.ui.transactions
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,6 +18,7 @@ import com.creditcardmanager.viewmodel.TransactionViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.Calendar
 
 @AndroidEntryPoint
 class AddTransactionFragment : Fragment() {
@@ -59,8 +61,26 @@ class AddTransactionFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        binding.editDate.setOnClickListener { showDatePicker() }
         binding.btnPreview.setOnClickListener { previewTransaction() }
         binding.btnSave.setOnClickListener { saveTransaction() }
+    }
+
+    private fun showDatePicker() {
+        val cal = Calendar.getInstance()
+        if (binding.editDate.text.isNotBlank()) {
+            try {
+                val d = LocalDate.parse(binding.editDate.text)
+                cal.set(d.year, d.monthValue - 1, d.dayOfMonth)
+            } catch (_: Exception) { }
+        }
+        DatePickerDialog(
+            requireContext(),
+            { _, y, m, d ->
+                binding.editDate.setText("%04d-%02d-%02d".format(y, m + 1, d))
+            },
+            cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     private fun previewTransaction() {
@@ -94,7 +114,18 @@ class AddTransactionFragment : Fragment() {
 
     private fun updatePreview(preview: TransactionViewModel.TransactionPreview) {
         binding.previewContainer.visibility = View.VISIBLE
-        binding.tvInterestFreeDays.text = "免息期: ${preview.interestFreeDays}天"
+        binding.tvInterestFreeDays.text = "免息期: ${preview.interestFreeDays} 天"
+
+        val activityNames = preview.matchedActivities.map { it.activity.name }
+        binding.tvPreviewActivities.text = if (activityNames.isNotEmpty()) 
+            "命中活动: ${activityNames.joinToString(", ")}" 
+        else "暂无命中活动"
+
+        val totalRebate = preview.matchedActivities.mapNotNull { it.cashbackPreview }.sum()
+        binding.tvPreviewRebate.text = if (totalRebate > 0) 
+            "预计返现: ¥${String.format("%.2f", totalRebate)}" 
+        else ""
+        binding.tvPreviewRebate.visibility = if (totalRebate > 0) View.VISIBLE else View.GONE
     }
 
     override fun onDestroyView() { super.onDestroyView(); _binding = null }

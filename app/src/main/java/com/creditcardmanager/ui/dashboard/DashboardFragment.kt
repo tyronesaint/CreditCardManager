@@ -25,6 +25,7 @@ class DashboardFragment : Fragment() {
     private val viewModel: DashboardViewModel by viewModels()
     private val paymentAdapter by lazy { PaymentAdapter() }
     private val activityAdapter by lazy { ActivityAdapter() }
+    private val topCardAdapter by lazy { TopCardAdapter() }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
@@ -33,14 +34,16 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        binding.rvTopCards.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        binding.rvTopCards.adapter = topCardAdapter
         binding.rvPayments.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
         binding.rvPayments.adapter = paymentAdapter
         binding.rvActivities.layoutManager = LinearLayoutManager(requireContext())
         binding.rvActivities.adapter = activityAdapter
         binding.swipeRefresh.setOnRefreshListener { viewModel.loadDashboard() }
         binding.btnAddTransaction.setOnClickListener { findNavController().navigate(R.id.action_dashboard_to_addTransaction) }
-        binding.btnViewAllCards.setOnClickListener { findNavController().navigate(R.id.action_dashboard_to_cards) }
-        binding.btnViewAllActivities.setOnClickListener { findNavController().navigate(R.id.action_dashboard_to_activities) }
+        binding.btnViewAllCards.setOnClickListener { findNavController().navigate(R.id.cardsFragment) }
+        binding.btnViewAllActivities.setOnClickListener { findNavController().navigate(R.id.activitiesFragment) }
         observeData()
     }
 
@@ -54,14 +57,7 @@ class DashboardFragment : Fragment() {
     }
 
     private fun updateUI(data: com.creditcardmanager.model.DashboardData) {
-        binding.topCardsContainer.removeAllViews()
-        data.topCards.forEach { info ->
-            val cardView = layoutInflater.inflate(R.layout.item_top_card, binding.topCardsContainer, false)
-            cardView.findViewById<android.widget.TextView>(R.id.tv_card_name).text = "${info.bankShortName ?: ""} ${info.cardName}"
-            cardView.findViewById<android.widget.TextView>(R.id.tv_due_date).text = "还款日: ${info.dueDate}"
-            cardView.findViewById<android.widget.TextView>(R.id.tv_days).text = info.interestFreeDays.toString()
-            binding.topCardsContainer.addView(cardView)
-        }
+        topCardAdapter.submitList(data.topCards)
         paymentAdapter.submitList(data.upcomingPayments)
         val allActivities = data.bankActivities + data.cardActivities
         activityAdapter.submitList(allActivities)

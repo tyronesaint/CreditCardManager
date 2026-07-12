@@ -123,14 +123,18 @@ class ActivityViewModel @Inject constructor(
     fun markAchieved(activityId: String) {
         viewModelScope.launch {
             val progress = progressRepo.getProgressByActivityIdSync(activityId)
-            val newProgress = (progress ?: ActivityProgress(activityId, DateUtils.getPeriodKey(PeriodType.NATURAL_MONTH))).copy(isAchieved = true)
+            val activity = activityRepo.getActivityById(activityId)
+            val periodKey = activity?.let { DateUtils.getPeriodKey(it.periodType) } ?: DateUtils.getPeriodKey(PeriodType.NATURAL_MONTH)
+            val newProgress = (progress ?: ActivityProgress(activityId, periodKey)).copy(isAchieved = true)
             progressRepo.saveProgress(newProgress); loadActivities(currentFilter)
         }
     }
     fun markCashbackFull(activityId: String, daily: Boolean = false, monthly: Boolean = false) {
         viewModelScope.launch {
             val progress = progressRepo.getProgressByActivityIdSync(activityId)
-            var newProgress = progress ?: ActivityProgress(activityId, DateUtils.getPeriodKey(PeriodType.NATURAL_MONTH))
+            val activity = activityRepo.getActivityById(activityId)
+            val periodKey = activity?.let { DateUtils.getPeriodKey(it.periodType) } ?: DateUtils.getPeriodKey(PeriodType.NATURAL_MONTH)
+            var newProgress = progress ?: ActivityProgress(activityId, periodKey)
             if (daily) newProgress = newProgress.copy(todayCashback = 9999.0)
             if (monthly) newProgress = newProgress.copy(currentCashback = 9999.0, isAchieved = true)
             progressRepo.saveProgress(newProgress); loadActivities(currentFilter)
