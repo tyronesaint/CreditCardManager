@@ -66,9 +66,10 @@ class DashboardViewModel @Inject constructor(
                     }
                     else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
                 }
-                val transactions = if (activity.level == ActivityLevel.BANK) {
+                val transactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
                     val bankCards = cards.filter { it.bankId == activity.bankId }
-                    bankCards.flatMap { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
+                    val lists: List<List<Transaction>> = bankCards.map { transactionRepo.getTransactionsByCardAndDateRange(it.id, start, end).first() }
+                    lists.flatten()
                 } else {
                     activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end).first() } ?: emptyList()
                 }

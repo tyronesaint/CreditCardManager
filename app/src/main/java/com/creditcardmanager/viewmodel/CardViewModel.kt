@@ -66,7 +66,7 @@ class CardViewModel @Inject constructor(
                 val progress = ActivityCalculator.calculateProgress(act, transactions)
                 ActivityWithProgress(act, progress, card.name, bank?.name)
             }
-            val transactions = transactionRepo.getTransactionsByCardId(cardId).first().take(10)
+            val transactions: List<Transaction> = transactionRepo.getTransactionsByCardId(cardId).first().take(10)
             _selectedCard.value = CardDetail(card, bank, interestFree, statementAmount, annualFeeProgress, activities, transactions)
         }
     }
