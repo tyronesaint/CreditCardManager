@@ -21,34 +21,8 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        // Setup bottom nav with custom behavior
+        // Setup bottom nav - 使用标准方式，让 NavigationUI 自己处理多返回栈
         binding.bottomNavigation.setupWithNavController(navController)
-
-        // Custom handling: when clicking already selected tab, pop to start destination
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            val currentDestination = navController.currentDestination?.id
-            if (currentDestination == item.itemId) {
-                // Already on this tab, pop to its start destination
-                navController.popBackStack(item.itemId, false)
-                true
-            } else {
-                // Normal navigation
-                val handled = androidx.navigation.ui.NavigationUI.onNavDestinationSelected(item, navController)
-                if (handled) {
-                    // Pop up to start destination to avoid back stack buildup
-                    val startId = navController.graph.startDestinationId
-                    if (currentDestination != null && currentDestination != startId) {
-                        navController.popBackStack(startId, false)
-                    }
-                }
-                handled
-            }
-        }
-
-        // Also handle re-selection to pop to start
-        binding.bottomNavigation.setOnItemReselectedListener { item ->
-            navController.popBackStack(item.itemId, false)
-        }
 
         // Handle notification deep links
         handleIntentExtras()

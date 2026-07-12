@@ -11,6 +11,8 @@ data class ReminderEntity(
     val sourceId: String? = null,
     val title: String,
     val remindTimesJson: String,
+    val repeatType: String = "ONCE",
+    val repeatValue: String? = null,
     val enabled: Boolean = true,
     val completed: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()

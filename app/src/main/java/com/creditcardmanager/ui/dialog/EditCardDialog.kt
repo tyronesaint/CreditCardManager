@@ -9,18 +9,34 @@ import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.creditcardmanager.model.Bank
 import com.creditcardmanager.model.Card
 import com.creditcardmanager.model.enums.DueDayType
+import com.creditcardmanager.viewmodel.BankViewModel
+import kotlinx.coroutines.launch
 
 class EditCardDialog(
     private val card: Card,
+    private val bankViewModel: BankViewModel,
     private val onSave: (Card) -> Unit
 ) : DialogFragment() {
+
+    private var banks: List<Bank> = emptyList()
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val layout = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 32, 48, 16)
+        }
+
+        val spinnerBank = Spinner(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
 
         val editName = EditText(requireContext()).apply {
@@ -82,6 +98,7 @@ class EditCardDialog(
             ).apply { bottomMargin = 16 }
         }
 
+        layout.addView(spinnerBank)
         layout.addView(editName)
         layout.addView(editLast4)
         layout.addView(editLimit)
@@ -89,10 +106,31 @@ class EditCardDialog(
         layout.addView(spinnerDueType)
         layout.addView(editDueDay)
 
+        // Load bank list and select current bank
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                bankViewModel.banks.collect { bankList ->
+                    banks = bankList
+                    spinnerBank.adapter = ArrayAdapter(
+                        requireContext(),
+                        android.R.layout.simple_dropdown_item_1line,
+                        bankList.map { it.name }
+                    )
+                    // Select current bank
+                    val currentIndex = bankList.indexOfFirst { it.id == card.bankId }
+                    if (currentIndex >= 0) {
+                        spinnerBank.setSelection(currentIndex)
+                    }
+                }
+            }
+        }
+
         return AlertDialog.Builder(requireContext())
             .setTitle("编辑卡片")
             .setView(layout)
             .setPositiveButton("保存") { _, _ ->
+                val bankPos = spinnerBank.selectedItemPosition
+                val bankId = banks.getOrNull(bankPos)?.id ?: card.bankId
                 val name = editName.text.toString().trim()
                 val statementDay = editStatementDay.text.toString().toIntOrNull()
                 val dueDay = editDueDay.text.toString().toIntOrNull()
@@ -115,6 +153,7 @@ class EditCardDialog(
                 val dueDayType = if (spinnerDueType.selectedItemPosition == 0) DueDayType.FIXED_DATE else DueDayType.FIXED_INTERVAL
 
                 val updated = card.copy(
+                    bankId = bankId,
                     name = name,
                     last4 = last4,
                     creditLimit = limit,

@@ -78,7 +78,7 @@ class CardsFragment : Fragment() {
     }
 
     private fun showEditCardDialog(card: com.creditcardmanager.model.Card) {
-        EditCardDialog(card) { updatedCard ->
+        EditCardDialog(card, bankViewModel) { updatedCard ->
             viewModel.updateCard(updatedCard)
             Toast.makeText(requireContext(), "卡片已更新", Toast.LENGTH_SHORT).show()
         }.show(childFragmentManager, "edit_card")

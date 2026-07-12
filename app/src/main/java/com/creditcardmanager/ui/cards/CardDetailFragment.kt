@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.creditcardmanager.databinding.FragmentCardDetailBinding
 import com.creditcardmanager.ui.activities.ActivityAdapter
 import com.creditcardmanager.ui.dialog.EditCardDialog
+import com.creditcardmanager.viewmodel.BankViewModel
 import com.creditcardmanager.viewmodel.CardViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -25,6 +26,7 @@ class CardDetailFragment : Fragment() {
     private var _binding: FragmentCardDetailBinding? = null
     private val binding get() = _binding!!
     private val viewModel: CardViewModel by viewModels()
+    private val bankViewModel: BankViewModel by viewModels()
     private val args: CardDetailFragmentArgs by navArgs()
     private val activityAdapter by lazy {
         ActivityAdapter(
@@ -64,7 +66,7 @@ class CardDetailFragment : Fragment() {
     }
 
     private fun showEditCardDialog(card: com.creditcardmanager.model.Card) {
-        EditCardDialog(card) { updatedCard ->
+        EditCardDialog(card, bankViewModel) { updatedCard ->
             viewModel.updateCard(updatedCard)
             Toast.makeText(requireContext(), "卡片已更新", Toast.LENGTH_SHORT).show()
         }.show(childFragmentManager, "edit_card")

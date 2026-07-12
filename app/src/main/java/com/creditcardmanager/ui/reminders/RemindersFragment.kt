@@ -5,6 +5,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -16,6 +20,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.creditcardmanager.databinding.FragmentRemindersBinding
 import com.creditcardmanager.model.Reminder
+import com.creditcardmanager.model.ReminderRepeatType
+import com.creditcardmanager.model.ReminderTime
 import com.creditcardmanager.viewmodel.ReminderViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -65,9 +71,6 @@ class RemindersFragment : Fragment() {
                     viewModel.setCompleted(reminder.id, false)
                 }
             },
-            onDelete = { reminder: Reminder ->
-                confirmDelete(reminder)
-            },
             onLongClick = { reminder: Reminder ->
                 showReminderActions(reminder)
             }
@@ -106,26 +109,88 @@ class RemindersFragment : Fragment() {
     }
 
     private fun showEditReminderDialog(reminder: Reminder) {
-        val layout = android.widget.LinearLayout(requireContext()).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
+        val layout = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
             setPadding(48, 32, 48, 16)
         }
-        val editTitle = android.widget.EditText(requireContext()).apply {
+
+        val editTitle = EditText(requireContext()).apply {
             setText(reminder.title)
             hint = "提醒标题"
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
-        val editOffset = android.widget.EditText(requireContext()).apply {
+
+        val spinnerRepeat = Spinner(requireContext()).apply {
+            adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line,
+                listOf("一次性", "每天", "每周", "每月几号", "每月几次"))
+            setSelection(reminder.repeatType.ordinal)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
+        val editRepeatValue = EditText(requireContext()).apply {
+            setText(reminder.repeatValue ?: "")
+            hint = "具体值（周几1-7 / 几号1-31 / 几次）"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
+        val editOffset = EditText(requireContext()).apply {
             setText(reminder.remindTimes.firstOrNull()?.offsetDays?.toString() ?: "0")
             hint = "提前几天提醒"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
-        val editTime = android.widget.EditText(requireContext()).apply {
+
+        val editTime = EditText(requireContext()).apply {
             setText(reminder.remindTimes.firstOrNull()?.timeOfDay ?: "09:00")
             hint = "提醒时间（如 09:00）"
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
         }
+
         layout.addView(editTitle)
+        layout.addView(spinnerRepeat)
+        layout.addView(editRepeatValue)
         layout.addView(editOffset)
         layout.addView(editTime)
+
+        // 根据重复类型显示/隐藏具体值输入
+        spinnerRepeat.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                when (position) {
+                    0, 1 -> editRepeatValue.visibility = View.GONE
+                    2 -> {
+                        editRepeatValue.visibility = View.VISIBLE
+                        editRepeatValue.hint = "周几（1=周一, 7=周日）"
+                    }
+                    3 -> {
+                        editRepeatValue.visibility = View.VISIBLE
+                        editRepeatValue.hint = "每月几号（1-31）"
+                    }
+                    4 -> {
+                        editRepeatValue.visibility = View.VISIBLE
+                        editRepeatValue.hint = "每月几次"
+                    }
+                }
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+        // Trigger initial visibility
+        spinnerRepeat.onItemSelectedListener?.onItemSelected(null, null, reminder.repeatType.ordinal, 0)
 
         AlertDialog.Builder(requireContext())
             .setTitle("编辑提醒")
@@ -136,11 +201,45 @@ class RemindersFragment : Fragment() {
                     Toast.makeText(requireContext(), "请输入标题", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
+
+                val repeatType = ReminderRepeatType.values()[spinnerRepeat.selectedItemPosition]
+                val repeatValue = if (repeatType == ReminderRepeatType.WEEKLY ||
+                                      repeatType == ReminderRepeatType.MONTHLY_DATE ||
+                                      repeatType == ReminderRepeatType.MONTHLY_COUNT) {
+                    editRepeatValue.text.toString().trim().takeIf { it.isNotEmpty() }
+                } else null
+
+                // 验证
+                if (repeatType == ReminderRepeatType.WEEKLY) {
+                    val v = repeatValue?.toIntOrNull()
+                    if (v == null || v !in 1..7) {
+                        Toast.makeText(requireContext(), "周几必须是1-7", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                }
+                if (repeatType == ReminderRepeatType.MONTHLY_DATE) {
+                    val v = repeatValue?.toIntOrNull()
+                    if (v == null || v !in 1..31) {
+                        Toast.makeText(requireContext(), "日期必须是1-31", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                }
+                if (repeatType == ReminderRepeatType.MONTHLY_COUNT) {
+                    val v = repeatValue?.toIntOrNull()
+                    if (v == null || v < 1) {
+                        Toast.makeText(requireContext(), "次数必须大于0", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                }
+
                 val offset = editOffset.text.toString().toIntOrNull() ?: 0
                 val time = editTime.text.toString().takeIf { it.isNotBlank() } ?: "09:00"
+
                 val updated = reminder.copy(
                     title = title,
-                    remindTimes = listOf(com.creditcardmanager.model.ReminderTime(offsetDays = offset, timeOfDay = time)),
+                    remindTimes = listOf(ReminderTime(offsetDays = offset, timeOfDay = time)),
+                    repeatType = repeatType,
+                    repeatValue = repeatValue,
                     completed = false
                 )
                 viewModel.updateReminder(updated)

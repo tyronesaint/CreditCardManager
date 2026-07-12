@@ -3,6 +3,7 @@ package com.creditcardmanager.data.repository
 import com.creditcardmanager.data.local.dao.ReminderDao
 import com.creditcardmanager.data.local.entity.ReminderEntity
 import com.creditcardmanager.model.Reminder
+import com.creditcardmanager.model.ReminderRepeatType
 import com.creditcardmanager.model.ReminderTime
 import com.creditcardmanager.model.enums.SourceType
 import com.google.gson.Gson
@@ -27,11 +28,31 @@ class ReminderRepository @Inject constructor(private val reminderDao: ReminderDa
     suspend fun deleteAll() = reminderDao.deleteAll()
     private fun ReminderEntity.toModel(): Reminder {
         val type = object : TypeToken<List<ReminderTime>>() {}.type
-        return Reminder(id = id, sourceType = sourceType, sourceId = sourceId, title = title,
-            remindTimes = gson.fromJson(remindTimesJson, type) ?: emptyList(), enabled = enabled, completed = completed, createdAt = createdAt)
+        return Reminder(
+            id = id,
+            sourceType = sourceType,
+            sourceId = sourceId,
+            title = title,
+            remindTimes = gson.fromJson(remindTimesJson, type) ?: emptyList(),
+            repeatType = try { ReminderRepeatType.valueOf(repeatType) } catch (_: Exception) { ReminderRepeatType.ONCE },
+            repeatValue = repeatValue,
+            enabled = enabled,
+            completed = completed,
+            createdAt = createdAt
+        )
     }
     private fun Reminder.toEntity(): ReminderEntity {
-        return ReminderEntity(id = id, sourceType = sourceType, sourceId = sourceId, title = title,
-            remindTimesJson = gson.toJson(remindTimes), enabled = enabled, completed = completed, createdAt = createdAt)
+        return ReminderEntity(
+            id = id,
+            sourceType = sourceType,
+            sourceId = sourceId,
+            title = title,
+            remindTimesJson = gson.toJson(remindTimes),
+            repeatType = repeatType.name,
+            repeatValue = repeatValue,
+            enabled = enabled,
+            completed = completed,
+            createdAt = createdAt
+        )
     }
 }
