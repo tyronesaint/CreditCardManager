@@ -36,7 +36,6 @@ class PaymentRemindersViewModel @Inject constructor(
             val cards = cardRepo.getActiveCards().first()
             val bankMap = banks.associateBy { it.id }
             val today = LocalDate.now()
-            val paymentDaysAhead = appSettings.paymentDaysAhead
 
             val allPayments = cards.map { card ->
                 val statementDate = DateUtils.getStatementDate(card.statementDay, today)

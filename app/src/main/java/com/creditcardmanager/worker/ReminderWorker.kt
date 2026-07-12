@@ -30,7 +30,6 @@ class ReminderWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val today = LocalDate.now()
         val reminderDays = appSettings.getReminderDaysBefore()
-        val reminderTime = appSettings.getReminderTimeString()
 
         val banks = bankRepo.getAllBanks().first()
         val cards = cardRepo.getActiveCards().first()
