@@ -68,7 +68,7 @@ class AddTransactionFragment : Fragment() {
 
     private fun showDatePicker() {
         val cal = Calendar.getInstance()
-        if (binding.editDate.text.isNotBlank()) {
+        if (binding.editDate.text?.isNotBlank() == true) {
             try {
                 val d = LocalDate.parse(binding.editDate.text)
                 cal.set(d.year, d.monthValue - 1, d.dayOfMonth)
