@@ -36,6 +36,9 @@ object ActivityMatcher {
         if (activity.type == ActivityType.FIRST_SPEND && activity.minAmount != null) {
             if (transaction.amount < activity.minAmount) return false
         }
+        if (activity.type == ActivityType.CONSECUTIVE_DAYS && activity.minPerAmount != null) {
+            if (activity.minPerAmount > 0 && transaction.amount < activity.minPerAmount) return false
+        }
         return true
     }
 

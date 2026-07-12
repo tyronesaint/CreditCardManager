@@ -55,7 +55,7 @@ class AddActivityDialog(
             adapter = ArrayAdapter(
                 requireContext(),
                 android.R.layout.simple_dropdown_item_1line,
-                listOf("银行级活动", "卡片级活动")
+                listOf("银行级活动", "卡片级活动", "通用活动")
             )
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -74,7 +74,7 @@ class AddActivityDialog(
             adapter = ArrayAdapter(
                 requireContext(),
                 android.R.layout.simple_dropdown_item_1line,
-                listOf("金额达标", "笔数达标", "比例返现", "连续达标", "首刷奖", "每日签到")
+                listOf("金额达标", "笔数达标", "比例返现", "连续达标", "首刷奖", "每日签到", "连续消费N天", "每周固定领取")
             )
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -96,7 +96,7 @@ class AddActivityDialog(
 
         val editTarget = EditText(requireContext()).apply {
             hint = "目标金额/笔数/比例"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -104,8 +104,18 @@ class AddActivityDialog(
         }
 
         val editRequiredPeriods = EditText(requireContext()).apply {
-            hint = "连续几期"
+            hint = "连续几期/几天"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
+        val editMinPerAmount = EditText(requireContext()).apply {
+            hint = "每笔最低金额（选填）"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -120,6 +130,7 @@ class AddActivityDialog(
         layout.addView(spinnerPeriod)
         layout.addView(editTarget)
         layout.addView(editRequiredPeriods)
+        layout.addView(editMinPerAmount)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -147,16 +158,34 @@ class AddActivityDialog(
         spinnerType.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
                 val type = ActivityType.values()[position]
-                if (type == ActivityType.CONTINUOUS_PERIOD) {
-                    editRequiredPeriods.visibility = View.VISIBLE
-                    editTarget.hint = "每期目标金额/笔数"
-                } else {
-                    editRequiredPeriods.visibility = View.GONE
-                    editTarget.hint = when (type) {
-                        ActivityType.AMOUNT_TARGET -> "目标金额"
-                        ActivityType.COUNT_TARGET -> "目标笔数"
-                        ActivityType.CASHBACK_RATE -> "返现比例(%)"
-                        else -> "目标金额/笔数"
+                when (type) {
+                    ActivityType.CONTINUOUS_PERIOD -> {
+                        editRequiredPeriods.visibility = View.VISIBLE
+                        editRequiredPeriods.hint = "连续几期达标"
+                        editTarget.hint = "每期目标金额/笔数"
+                        editMinPerAmount.visibility = View.VISIBLE
+                    }
+                    ActivityType.CONSECUTIVE_DAYS -> {
+                        editRequiredPeriods.visibility = View.VISIBLE
+                        editRequiredPeriods.hint = "连续消费N天"
+                        editTarget.hint = "每天至少消费金额"
+                        editMinPerAmount.visibility = View.VISIBLE
+                    }
+                    ActivityType.WEEKLY_CLAIM -> {
+                        editRequiredPeriods.visibility = View.GONE
+                        editTarget.hint = "每周领取金额（选填）"
+                        editMinPerAmount.visibility = View.GONE
+                    }
+                    else -> {
+                        editRequiredPeriods.visibility = View.GONE
+                        editMinPerAmount.visibility = if (type == ActivityType.COUNT_TARGET) View.VISIBLE else View.GONE
+                        editTarget.hint = when (type) {
+                            ActivityType.AMOUNT_TARGET -> "目标金额"
+                            ActivityType.COUNT_TARGET -> "目标笔数"
+                            ActivityType.CASHBACK_RATE -> "返现比例(%)"
+                            ActivityType.FIRST_SPEND -> "首刷最低金额"
+                            else -> "目标金额/笔数"
+                        }
                     }
                 }
             }
@@ -173,12 +202,17 @@ class AddActivityDialog(
                     return@setPositiveButton
                 }
 
-                val level = if (spinnerLevel.selectedItemPosition == 0) ActivityLevel.BANK else ActivityLevel.CARD
+                val levelPos = spinnerLevel.selectedItemPosition
+                val level = when (levelPos) {
+                    0 -> ActivityLevel.BANK
+                    1 -> ActivityLevel.CARD
+                    else -> ActivityLevel.BANK // 通用活动默认银行级
+                }
                 val targetPos = spinnerTarget.selectedItemPosition
                 val bankId = if (level == ActivityLevel.BANK) banks.getOrNull(targetPos)?.id else null
                 val cardId = if (level == ActivityLevel.CARD) cards.getOrNull(targetPos)?.id else null
 
-                if (level == ActivityLevel.BANK && bankId == null) {
+                if (level == ActivityLevel.BANK && bankId == null && levelPos != 2) {
                     Toast.makeText(requireContext(), "请先添加银行", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
@@ -197,9 +231,10 @@ class AddActivityDialog(
                 }
 
                 val targetValue = editTarget.text.toString().toDoubleOrNull()
-                val requiredPeriods = if (type == ActivityType.CONTINUOUS_PERIOD) {
+                val requiredPeriods = if (type == ActivityType.CONTINUOUS_PERIOD || type == ActivityType.CONSECUTIVE_DAYS) {
                     editRequiredPeriods.text.toString().toIntOrNull() ?: 1
                 } else null
+                val minPerAmount = editMinPerAmount.text.toString().toDoubleOrNull()
 
                 val activity = Activity(
                     id = IdGenerator.generateActivityId(),
@@ -209,8 +244,9 @@ class AddActivityDialog(
                     cardId = cardId,
                     type = type,
                     periodType = periodType,
-                    targetAmount = if (type == ActivityType.AMOUNT_TARGET) targetValue else null,
-                    targetCount = if (type == ActivityType.COUNT_TARGET) targetValue?.toInt() else null,
+                    targetAmount = if (type == ActivityType.AMOUNT_TARGET || type == ActivityType.CONSECUTIVE_DAYS) targetValue else null,
+                    targetCount = if (type == ActivityType.COUNT_TARGET || type == ActivityType.CONSECUTIVE_DAYS) targetValue?.toInt() else null,
+                    minPerAmount = if (type == ActivityType.COUNT_TARGET || type == ActivityType.CONSECUTIVE_DAYS) minPerAmount else null,
                     cashbackRate = if (type == ActivityType.CASHBACK_RATE) targetValue?.let { it / 100 } else null,
                     requiredPeriods = requiredPeriods,
                     filter = ActivityFilter(),

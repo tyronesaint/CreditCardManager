@@ -29,13 +29,26 @@ class CardViewModel @Inject constructor(
         val recentTransactions: List<Transaction>)
     data class AnnualFeeProgress(val currentAmount: Double, val currentCount: Int, val isAchieved: Boolean)
 
-    init { loadCards() }
+    init {
+        viewModelScope.launch {
+            combine(
+                bankRepo.getAllBanks(),
+                cardRepo.getAllCards()
+            ) { banks, allCards ->
+                banks.map { bank ->
+                    bank to allCards.filter { it.bankId == bank.id }.sortedBy { it.sortOrder }
+                }.filter { it.second.isNotEmpty() }
+            }.collect { _cards.value = it }
+        }
+    }
 
-    fun loadCards() {
+    fun refreshCards() {
         viewModelScope.launch {
             val banks = bankRepo.getAllBanks().first()
             val allCards = cardRepo.getAllCards().first()
-            _cards.value = banks.map { bank -> bank to allCards.filter { it.bankId == bank.id }.sortedBy { it.sortOrder } }.filter { it.second.isNotEmpty() }
+            _cards.value = banks.map { bank ->
+                bank to allCards.filter { it.bankId == bank.id }.sortedBy { it.sortOrder }
+            }.filter { it.second.isNotEmpty() }
         }
     }
 
@@ -71,7 +84,7 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    fun addCard(card: Card) { viewModelScope.launch { cardRepo.saveCard(card); loadCards() } }
-    fun updateCard(card: Card) { viewModelScope.launch { cardRepo.updateCard(card); loadCards(); selectCard(card.id) } }
-    fun deleteCard(card: Card) { viewModelScope.launch { cardRepo.deleteCard(card); loadCards() } }
+    fun addCard(card: Card) { viewModelScope.launch { cardRepo.saveCard(card) } }
+    fun updateCard(card: Card) { viewModelScope.launch { cardRepo.updateCard(card); selectCard(card.id) } }
+    fun deleteCard(card: Card) { viewModelScope.launch { cardRepo.deleteCard(card) } }
 }

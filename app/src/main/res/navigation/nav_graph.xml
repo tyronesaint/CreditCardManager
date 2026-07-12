@@ -29,12 +29,21 @@
     <fragment
         android:id="@+id/activitiesFragment"
         android:name="com.creditcardmanager.ui.activities.ActivitiesFragment"
-        android:label="活动" />
+        android:label="活动">
+        <action
+            android:id="@+id/action_activities_to_activityDetail"
+            app:destination="@id/activityDetailFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/settingsFragment"
         android:name="com.creditcardmanager.ui.settings.SettingsFragment"
         android:label="设置" />
+
+    <fragment
+        android:id="@+id/remindersFragment"
+        android:name="com.creditcardmanager.ui.reminders.RemindersFragment"
+        android:label="提醒" />
 
     <fragment
         android:id="@+id/addTransactionFragment"
@@ -47,6 +56,18 @@
         android:label="卡片详情">
         <argument
             android:name="cardId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_cardDetail_to_activityDetail"
+            app:destination="@id/activityDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/activityDetailFragment"
+        android:name="com.creditcardmanager.ui.activities.ActivityDetailFragment"
+        android:label="活动详情">
+        <argument
+            android:name="activityId"
             app:argType="string" />
     </fragment>
 </navigation>

@@ -75,8 +75,17 @@ class AddCardDialog(
             ).apply { bottomMargin = 16 }
         }
 
+        val spinnerDueType = Spinner(requireContext()).apply {
+            adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line,
+                listOf("固定日期", "固定间隔"))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
         val editDueDay = EditText(requireContext()).apply {
-            hint = "还款日（1-28，固定日期模式）"
+            hint = "还款日（1-28）或间隔天数"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -89,6 +98,7 @@ class AddCardDialog(
         layout.addView(editLast4)
         layout.addView(editLimit)
         layout.addView(editStatementDay)
+        layout.addView(spinnerDueType)
         layout.addView(editDueDay)
 
         // 加载银行列表
@@ -115,6 +125,7 @@ class AddCardDialog(
                 val statementDay = editStatementDay.text.toString().toIntOrNull()
                 val dueDay = editDueDay.text.toString().toIntOrNull()
                 val limit = editLimit.text.toString().toDoubleOrNull()
+                val dueDayType = if (spinnerDueType.selectedItemPosition == 0) DueDayType.FIXED_DATE else DueDayType.FIXED_INTERVAL
 
                 if (bankId == null) {
                     Toast.makeText(requireContext(), "请先添加银行", Toast.LENGTH_SHORT).show()
@@ -129,7 +140,7 @@ class AddCardDialog(
                     return@setPositiveButton
                 }
                 if (dueDay == null || dueDay !in 1..28) {
-                    Toast.makeText(requireContext(), "还款日必须是1-28", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "还款日/间隔天数必须是1-28", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
@@ -141,8 +152,9 @@ class AddCardDialog(
                     creditLimit = limit,
                     status = CardStatus.ACTIVE,
                     statementDay = statementDay,
-                    dueDayType = DueDayType.FIXED_DATE,
-                    dueDay = dueDay
+                    dueDayType = dueDayType,
+                    dueDay = if (dueDayType == DueDayType.FIXED_DATE) dueDay else null,
+                    dueIntervalDays = if (dueDayType == DueDayType.FIXED_INTERVAL) dueDay else null
                 )
                 cardViewModel.addCard(card)
             }

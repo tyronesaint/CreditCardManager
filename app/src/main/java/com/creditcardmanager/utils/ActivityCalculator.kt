@@ -75,6 +75,33 @@ object ActivityCalculator {
                 isAchieved = existingProgress?.isAchieved ?: false
                 currentCount = existingProgress?.currentCount ?: 0
             }
+            ActivityType.CONSECUTIVE_DAYS -> {
+                // 连续消费N天：统计有消费的天数，看是否连续N天
+                val spendDates = filteredTransactions.map { it.spendDate }.distinct().sorted()
+                var maxConsecutive = 0
+                var currentConsecutive = 0
+                var prevDate: LocalDate? = null
+                for (date in spendDates) {
+                    if (prevDate != null && date.minusDays(1) == prevDate) {
+                        currentConsecutive++
+                    } else {
+                        currentConsecutive = 1
+                    }
+                    maxConsecutive = maxOf(maxConsecutive, currentConsecutive)
+                    prevDate = date
+                }
+                currentCount = maxConsecutive
+                isAchieved = activity.targetCount != null && maxConsecutive >= activity.targetCount
+            }
+            ActivityType.WEEKLY_CLAIM -> {
+                // 每周固定日期领取：检查本周是否已领取（通过交易记录或手动标记）
+                // 简化：如果有本周的交易记录就算已领取
+                val thisWeekTransactions = filteredTransactions.filter {
+                    it.spendDate >= DateUtils.getPeriodStart(com.creditcardmanager.model.enums.PeriodType.NATURAL_WEEK, today)
+                }
+                isAchieved = thisWeekTransactions.isNotEmpty()
+                currentCount = if (isAchieved) 1 else 0
+            }
         }
         return ActivityProgress(activityId = activity.id, periodKey = periodKey, currentAmount = currentAmount,
             currentCount = currentCount, currentCashback = currentCashback, todayCashback = todayCashback,

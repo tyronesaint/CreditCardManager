@@ -30,18 +30,31 @@ class ActivityViewModel @Inject constructor(
     data class ActivityDetail(val activity: Activity, val progress: ActivityProgress, val cardName: String?,
         val bankName: String?, val transactions: List<Transaction>)
 
-    enum class ActivityFilter { ALL, BANK, CARD, ARCHIVED }
+    enum class ActivityFilter { ALL, BANK, CARD, GENERAL, ARCHIVED }
+    enum class SortType { BY_BANK, BY_CARD, BY_TYPE, BY_PROGRESS }
+
     private var currentFilter: ActivityFilter = ActivityFilter.ALL
+    private var currentSort: SortType = SortType.BY_BANK
 
     init { loadActivities(ActivityFilter.ALL) }
 
     fun loadActivities(filter: ActivityFilter) {
         currentFilter = filter
+        refreshActivities()
+    }
+
+    fun setSortType(sort: SortType) {
+        currentSort = sort
+        refreshActivities()
+    }
+
+    private fun refreshActivities() {
         viewModelScope.launch {
-            val flow = when (filter) {
+            val flow = when (currentFilter) {
                 ActivityFilter.ALL -> activityRepo.getAllActiveActivities()
                 ActivityFilter.BANK -> activityRepo.getBankActivities()
                 ActivityFilter.CARD -> activityRepo.getCardActivities()
+                ActivityFilter.GENERAL -> activityRepo.getAllActiveActivities()
                 ActivityFilter.ARCHIVED -> activityRepo.getAllArchivedActivities()
             }
             flow.collect { acts ->
@@ -73,7 +86,13 @@ class ActivityViewModel @Inject constructor(
                     val progress = ActivityCalculator.calculateProgress(activity, transactions)
                     ActivityWithProgress(activity, progress, activity.cardId?.let { cards[it]?.name }, activity.bankId?.let { banks[it]?.name })
                 }
-                _activities.value = list
+                val sorted = when (currentSort) {
+                    SortType.BY_BANK -> list.sortedWith(compareBy({ it.bankName ?: "" }, { it.cardName ?: "" }))
+                    SortType.BY_CARD -> list.sortedWith(compareBy({ it.cardName ?: "" }, { it.bankName ?: "" }))
+                    SortType.BY_TYPE -> list.sortedBy { it.activity.type.name }
+                    SortType.BY_PROGRESS -> list.sortedByDescending { it.progress.currentAmount / (it.activity.targetAmount ?: 1.0) }
+                }
+                _activities.value = sorted
             }
         }
     }
@@ -114,19 +133,42 @@ class ActivityViewModel @Inject constructor(
         viewModelScope.launch {
             activityRepo.saveActivity(activity)
             if (activity.reward.claimReminderEnabled) createClaimReminder(activity)
-            loadActivities(currentFilter)
+            refreshActivities()
         }
     }
-    fun updateActivity(activity: Activity) { viewModelScope.launch { activityRepo.updateActivity(activity); loadActivities(currentFilter); selectActivity(activity.id) } }
-    fun archiveActivity(activityId: String) { viewModelScope.launch { activityRepo.archiveActivity(activityId); loadActivities(currentFilter) } }
-    fun deleteActivity(activity: Activity) { viewModelScope.launch { activityRepo.deleteActivity(activity); loadActivities(currentFilter) } }
+    fun updateActivity(activity: Activity) {
+        viewModelScope.launch {
+            activityRepo.updateActivity(activity)
+            refreshActivities()
+            selectActivity(activity.id)
+        }
+    }
+    fun archiveActivity(activityId: String) {
+        viewModelScope.launch {
+            activityRepo.archiveActivity(activityId)
+            refreshActivities()
+        }
+    }
+    fun unarchiveActivity(activityId: String) {
+        viewModelScope.launch {
+            activityRepo.unarchiveActivity(activityId)
+            refreshActivities()
+        }
+    }
+    fun deleteActivity(activity: Activity) {
+        viewModelScope.launch {
+            activityRepo.deleteActivity(activity)
+            refreshActivities()
+        }
+    }
     fun markAchieved(activityId: String) {
         viewModelScope.launch {
             val progress = progressRepo.getProgressByActivityIdSync(activityId)
             val activity = activityRepo.getActivityById(activityId)
             val periodKey = activity?.let { DateUtils.getPeriodKey(it.periodType) } ?: DateUtils.getPeriodKey(PeriodType.NATURAL_MONTH)
             val newProgress = (progress ?: ActivityProgress(activityId, periodKey)).copy(isAchieved = true)
-            progressRepo.saveProgress(newProgress); loadActivities(currentFilter)
+            progressRepo.saveProgress(newProgress)
+            refreshActivities()
         }
     }
     fun markCashbackFull(activityId: String, daily: Boolean = false, monthly: Boolean = false) {
@@ -137,7 +179,8 @@ class ActivityViewModel @Inject constructor(
             var newProgress = progress ?: ActivityProgress(activityId, periodKey)
             if (daily) newProgress = newProgress.copy(todayCashback = 9999.0)
             if (monthly) newProgress = newProgress.copy(currentCashback = 9999.0, isAchieved = true)
-            progressRepo.saveProgress(newProgress); loadActivities(currentFilter)
+            progressRepo.saveProgress(newProgress)
+            refreshActivities()
         }
     }
     private suspend fun createClaimReminder(activity: Activity) {
