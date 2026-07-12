@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -12,7 +11,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.creditcardmanager.databinding.FragmentActivitiesBinding
+import com.creditcardmanager.ui.dialog.AddActivityDialog
 import com.creditcardmanager.viewmodel.ActivityViewModel
+import com.creditcardmanager.viewmodel.BankViewModel
+import com.creditcardmanager.viewmodel.CardViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -21,6 +23,8 @@ class ActivitiesFragment : Fragment() {
     private var _binding: FragmentActivitiesBinding? = null
     private val binding get() = _binding!!
     private val viewModel: ActivityViewModel by viewModels()
+    private val bankViewModel: BankViewModel by viewModels()
+    private val cardViewModel: CardViewModel by viewModels()
     private val adapter by lazy { ActivityAdapter() }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -44,7 +48,8 @@ class ActivitiesFragment : Fragment() {
             override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
         })
         binding.fabAddActivity.setOnClickListener {
-            Toast.makeText(requireContext(), "添加活动功能开发中", Toast.LENGTH_SHORT).show()
+            AddActivityDialog(bankViewModel, cardViewModel, viewModel)
+                .show(childFragmentManager, "add_activity")
         }
         observeData()
     }

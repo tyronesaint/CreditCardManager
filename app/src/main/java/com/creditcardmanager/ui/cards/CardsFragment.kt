@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -13,6 +12,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.creditcardmanager.databinding.FragmentCardsBinding
+import com.creditcardmanager.ui.dialog.AddBankDialog
+import com.creditcardmanager.ui.dialog.AddCardDialog
+import com.creditcardmanager.viewmodel.BankViewModel
 import com.creditcardmanager.viewmodel.CardViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -22,6 +24,7 @@ class CardsFragment : Fragment() {
     private var _binding: FragmentCardsBinding? = null
     private val binding get() = _binding!!
     private val viewModel: CardViewModel by viewModels()
+    private val bankViewModel: BankViewModel by viewModels()
     private val adapter by lazy {
         CardAdapter { card ->
             val action = CardsFragmentDirections.actionCardsToCardDetail(card.id)
@@ -39,7 +42,15 @@ class CardsFragment : Fragment() {
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
         binding.fabAddCard.setOnClickListener {
-            Toast.makeText(requireContext(), "添加卡片功能开发中", Toast.LENGTH_SHORT).show()
+            // 如果没有银行，先提示添加银行
+            lifecycleScope.launch {
+                val hasBanks = bankViewModel.banks.value.isNotEmpty()
+                if (hasBanks) {
+                    AddCardDialog(bankViewModel, viewModel).show(childFragmentManager, "add_card")
+                } else {
+                    AddBankDialog(bankViewModel).show(childFragmentManager, "add_bank")
+                }
+            }
         }
         observeData()
     }
