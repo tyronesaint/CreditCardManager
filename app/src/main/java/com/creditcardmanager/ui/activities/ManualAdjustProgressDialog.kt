@@ -89,5 +89,3 @@ class ManualAdjustProgressDialog(
         return 0.0
     }
 }
-
-⚠️ 注：上面ActivityDetailFragment里已经用AlertDialog实现了调整逻辑，这个Dialog类可以不用，如果你想和现有Dialog风格统一就留，否则删掉这个文件，只用ActivityDetailFragment里的实现就行。
