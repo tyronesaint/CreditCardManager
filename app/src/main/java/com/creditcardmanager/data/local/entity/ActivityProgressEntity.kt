@@ -13,5 +13,9 @@ data class ActivityProgressEntity(
     val todayCashback: Double = 0.0,
     val isAchieved: Boolean = false,
     val continuousDone: Int = 0,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    // ↓↓↓ 新增3个字段（手动调整用，默认null不影响旧数据）
+    val manualBaseline: Double? = null,      // 手动设置的基准值（查账/拍脑袋的数）
+    val baselineSource: String? = null,      // "CHECK"=查账/"MANUAL"=手动/"null"=消费累加
+    val manualSince: Long? = null            // 手动调整的时间戳（毫秒），之后新消费从这天算
 )

@@ -12,6 +12,7 @@ import com.creditcardmanager.utils.DateUtils
 import com.creditcardmanager.utils.IdGenerator
 import com.creditcardmanager.utils.InterestFreeCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -19,9 +20,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
-    private val transactionRepo: TransactionRepository, private val cardRepo: CardRepository,
-    private val activityRepo: ActivityRepository, private val progressRepo: ActivityProgressRepository,
-    private val bankRepo: BankRepository, private val tagRepo: TagRepository
+    private val transactionRepo: TransactionRepository,
+    private val cardRepo: CardRepository,
+    private val activityRepo: ActivityRepository,
+    private val progressRepo: ActivityProgressRepository,
+    private val bankRepo: BankRepository,
+    private val tagRepo: TagRepository
 ) : ViewModel() {
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
@@ -40,7 +44,9 @@ class TransactionViewModel @Inject constructor(
         viewModelScope.launch { tagRepo.getAllTags().collect { _tags.value = it } }
     }
 
-    fun loadTransactions(cardId: String) { viewModelScope.launch { transactionRepo.getTransactionsByCardId(cardId).collect { _transactions.value = it } } }
+    fun loadTransactions(cardId: String) {
+        viewModelScope.launch { transactionRepo.getTransactionsByCardId(cardId).collect { _transactions.value = it } }
+    }
 
     fun previewTransaction(cardId: String, amount: Double, spendDate: LocalDate, tagId: String) {
         viewModelScope.launch {
@@ -64,52 +70,134 @@ class TransactionViewModel @Inject constructor(
     }
 
     fun addTransaction(transaction: Transaction) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             transactionRepo.saveTransaction(transaction)
-            val activities = activityRepo.getAllActiveActivities().first()
-            val allCards = cardRepo.getAllCards().first().associateBy { it.id }
-            val today = LocalDate.now()
-            for (activity in activities) {
-                val activityCard = if (activity.level == ActivityLevel.BANK) {
-                    allCards[transaction.cardId]
-                } else if (activity.level == ActivityLevel.CARD) {
-                    activity.cardId?.let { allCards[it] }
-                } else null
-                if (ActivityMatcher.matchTransaction(transaction, activity, activityCard)) {
-                    val (start, end) = when (activity.periodType) {
-                        PeriodType.BIND_STATEMENT -> {
-                            val c = activity.cardId?.let { allCards[it] }
-                            if (c != null) DateUtils.getStatementPeriod(c.statementDay, today)
-                            else DateUtils.getPeriodStart(PeriodType.NATURAL_MONTH, today) to DateUtils.getPeriodEnd(PeriodType.NATURAL_MONTH, today)
-                        }
-                        else -> DateUtils.getPeriodStart(activity.periodType, today) to DateUtils.getPeriodEnd(activity.periodType, today)
-                    }
-                    val existingTransactions: List<Transaction> = if (activity.level == ActivityLevel.BANK) {
-                        if (activity.bankId != null) {
-                            buildList {
-                                for (c in allCards.values) {
-                                    if (c.bankId == activity.bankId) {
-                                        addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
-                                    }
-                                }
-                            }
-                        } else emptyList()
-                    } else {
-                        activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
-                    }
-                    val allTransactions = existingTransactions + transaction
-                    // 获取现有进度用于连续达标累加
-                    val existingProgress = progressRepo.getProgressByActivityIdSync(activity.id)
-                    val progress = ActivityCalculator.calculateProgress(activity, allTransactions, existingProgress)
-                    progressRepo.saveProgress(progress)
-                }
-            }
-            _preview.value = null
+            recalculateRelatedActivities(transaction)
         }
     }
 
     fun createTransaction(cardId: String, amount: Double, spendDate: LocalDate, tagId: String, channel: String?, note: String?) {
         addTransaction(Transaction(id = IdGenerator.generateTransactionId(), cardId = cardId, amount = amount, spendDate = spendDate, tagId = tagId, channel = channel, note = note))
     }
-    fun deleteTransaction(transaction: Transaction) { viewModelScope.launch { transactionRepo.deleteTransaction(transaction) } }
+
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionRepo.deleteTransaction(transaction)
+            recalculateRelatedActivities(transaction)
+        }
+    }
+
+    /**
+     * 新增：全量重算所有活动的进度（给导入用）
+     */
+    suspend fun recalculateAllActivities() {
+        val activities = activityRepo.getAllActiveActivities().first()
+        val allTransactions = transactionRepo.getAllTransactions().first()
+        val allCards = cardRepo.getAllCards().first().associateBy { it.id }
+        val today = LocalDate.now()
+
+        for (activity in activities) {
+            val (start, end) = when (activity.periodType) {
+                PeriodType.BIND_STATEMENT -> {
+                    val card = activity.cardId?.let { allCards[it] }
+                    if (card != null) {
+                        DateUtils.getStatementPeriod(card.statementDay, today)
+                    } else {
+                        DateUtils.getPeriodStart(PeriodType.NATURAL_MONTH, today) to
+                        DateUtils.getPeriodEnd(PeriodType.NATURAL_MONTH, today)
+                    }
+                }
+                else -> DateUtils.getPeriodStart(activity.periodType, today) to
+                        DateUtils.getPeriodEnd(activity.periodType, today)
+            }
+            val periodKey = if (activity.periodType == PeriodType.BIND_STATEMENT) {
+                // BIND_STATEMENT的periodKey用账单起始月的"yyyy-MM"
+                "${start.year}-${String.format("%02d", start.monthValue)}"
+            } else {
+                DateUtils.getPeriodKey(activity.periodType)
+            }
+            val existingProgress = progressRepo.getProgressByActivityIdAndPeriodSync(activity.id, periodKey)
+            val activityTransactions = if (activity.level == ActivityLevel.BANK) {
+                if (activity.bankId != null) {
+                    buildList {
+                        for (c in allCards.values) {
+                            if (c.bankId == activity.bankId) {
+                                addAll(allTransactions.filter { it.cardId == c.id && it.spendDate in start..end })
+                            }
+                        }
+                    }
+                } else emptyList()
+            } else {
+                activity.cardId?.let { cardId ->
+                    allTransactions.filter { it.cardId == cardId && it.spendDate in start..end }
+                } ?: emptyList()
+            }
+            val progress = ActivityCalculator.calculateProgress(
+                activity = activity,
+                transactions = activityTransactions,
+                existingProgress = existingProgress,
+                periodKeyOverride = if (activity.periodType == PeriodType.BIND_STATEMENT) periodKey else null
+            )
+            progressRepo.saveProgress(progress)
+        }
+    }
+
+    /**
+     * 重算单笔交易相关的活动（原有逻辑保留，仅适配新Calculator）
+     */
+    private suspend fun recalculateRelatedActivities(transaction: Transaction) {
+        val activities = activityRepo.getAllActiveActivities().first()
+        val allCards = cardRepo.getAllCards().first().associateBy { it.id }
+        val today = LocalDate.now()
+
+        for (activity in activities) {
+            val activityCard = if (activity.level == ActivityLevel.BANK) {
+                allCards[transaction.cardId]
+            } else if (activity.level == ActivityLevel.CARD) {
+                activity.cardId?.let { allCards[it] }
+            } else null
+            if (!ActivityMatcher.matchTransaction(transaction, activity, activityCard)) continue
+
+            val (start, end) = when (activity.periodType) {
+                PeriodType.BIND_STATEMENT -> {
+                    val card = activity.cardId?.let { allCards[it] }
+                    if (card != null) {
+                        DateUtils.getStatementPeriod(card.statementDay, today)
+                    } else {
+                        DateUtils.getPeriodStart(PeriodType.NATURAL_MONTH, today) to
+                        DateUtils.getPeriodEnd(PeriodType.NATURAL_MONTH, today)
+                    }
+                }
+                else -> DateUtils.getPeriodStart(activity.periodType, today) to
+                        DateUtils.getPeriodEnd(activity.periodType, today)
+            }
+            val periodKey = if (activity.periodType == PeriodType.BIND_STATEMENT) {
+                "${start.year}-${String.format("%02d", start.monthValue)}"
+            } else {
+                DateUtils.getPeriodKey(activity.periodType)
+            }
+            val existingTransactions = if (activity.level == ActivityLevel.BANK) {
+                if (activity.bankId != null) {
+                    buildList {
+                        for (c in allCards.values) {
+                            if (c.bankId == activity.bankId) {
+                                addAll(transactionRepo.getTransactionsByCardAndDateRange(c.id, start, end))
+                            }
+                        }
+                    }
+                } else emptyList()
+            } else {
+                activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
+            }
+            val allTransactions = existingTransactions + transaction
+            val existingProgress = progressRepo.getProgressByActivityIdAndPeriodSync(activity.id, periodKey)
+            val progress = ActivityCalculator.calculateProgress(
+                activity = activity,
+                transactions = allTransactions,
+                existingProgress = existingProgress,
+                periodKeyOverride = if (activity.periodType == PeriodType.BIND_STATEMENT) periodKey else null
+            )
+            progressRepo.saveProgress(progress)
+        }
+    }
 }
