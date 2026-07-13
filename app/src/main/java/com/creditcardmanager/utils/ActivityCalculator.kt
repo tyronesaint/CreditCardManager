@@ -16,7 +16,12 @@ object ActivityCalculator {
         var todayCashback = 0.0
         var isAchieved = false
         var continuousDone = existingProgress?.continuousDone ?: 0
-        val filteredTransactions = transactions.filter { ActivityMatcher.matchTransaction(it, activity, null) }
+
+        // 对于BANK级活动，上层已经按bankId过滤了交易，这里直接全部匹配
+        // 对于CARD级活动，上层已经按cardId过滤了交易
+        val filteredTransactions = transactions.filter { 
+            ActivityMatcher.matchTransaction(it, activity, null) 
+        }
 
         when (activity.type) {
             ActivityType.AMOUNT_TARGET -> {
@@ -76,7 +81,6 @@ object ActivityCalculator {
                 currentCount = existingProgress?.currentCount ?: 0
             }
             ActivityType.CONSECUTIVE_DAYS -> {
-                // 连续消费N天：统计有消费的天数，看是否连续N天
                 val spendDates = filteredTransactions.map { it.spendDate }.distinct().sorted()
                 var maxConsecutive = 0
                 var currentConsecutive = 0
@@ -94,8 +98,6 @@ object ActivityCalculator {
                 isAchieved = activity.targetCount != null && maxConsecutive >= activity.targetCount
             }
             ActivityType.WEEKLY_CLAIM -> {
-                // 每周固定日期领取：检查本周是否已领取（通过交易记录或手动标记）
-                // 简化：如果有本周的交易记录就算已领取
                 val thisWeekTransactions = filteredTransactions.filter {
                     it.spendDate >= DateUtils.getPeriodStart(com.creditcardmanager.model.enums.PeriodType.NATURAL_WEEK, today)
                 }

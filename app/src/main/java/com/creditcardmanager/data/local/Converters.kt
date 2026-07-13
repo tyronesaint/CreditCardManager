@@ -1,7 +1,6 @@
 package com.creditcardmanager.data.local
 
 import androidx.room.TypeConverter
-import com.creditcardmanager.model.ReminderRepeatType
 import com.creditcardmanager.model.enums.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -20,8 +19,6 @@ class Converters {
     @TypeConverter fun toPeriodType(value: String): PeriodType = PeriodType.valueOf(value)
     @TypeConverter fun fromSourceType(value: SourceType): String = value.name
     @TypeConverter fun toSourceType(value: String): SourceType = SourceType.valueOf(value)
-    @TypeConverter fun fromReminderRepeatType(value: ReminderRepeatType): String = value.name
-    @TypeConverter fun toReminderRepeatType(value: String): ReminderRepeatType = ReminderRepeatType.valueOf(value)
     @TypeConverter fun fromStringList(value: String?): List<String> {
         if (value == null) return emptyList()
         val type = object : TypeToken<List<String>>() {}.type

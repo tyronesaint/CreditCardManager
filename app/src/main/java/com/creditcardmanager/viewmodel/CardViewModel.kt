@@ -76,7 +76,9 @@ class CardViewModel @Inject constructor(
             val activities = activityRepo.getActivitiesByCardId(cardId).first().map { act ->
                 val (start, end) = DateUtils.getPeriodStart(act.periodType, today) to DateUtils.getPeriodEnd(act.periodType, today)
                 val transactions = transactionRepo.getTransactionsByCardAndDateRange(cardId, start, end)
-                val progress = ActivityCalculator.calculateProgress(act, transactions)
+                val existingProgress = progressRepo.getProgressByActivityIdSync(act.id)
+                val progress = ActivityCalculator.calculateProgress(act, transactions, existingProgress)
+                progressRepo.saveProgress(progress)
                 ActivityWithProgress(act, progress, card.name, bank?.name)
             }
             val transactions: List<Transaction> = transactionRepo.getTransactionsByCardId(cardId).first().take(10)

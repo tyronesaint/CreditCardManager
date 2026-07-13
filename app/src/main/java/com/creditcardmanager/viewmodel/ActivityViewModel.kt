@@ -83,7 +83,11 @@ class ActivityViewModel @Inject constructor(
                     } else {
                         activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
                     }
-                    val progress = ActivityCalculator.calculateProgress(activity, transactions)
+                    // 获取现有进度用于连续达标累加
+                    val existingProgress = progressRepo.getProgressByActivityIdSync(activity.id)
+                    val progress = ActivityCalculator.calculateProgress(activity, transactions, existingProgress)
+                    // 保存计算后的进度
+                    progressRepo.saveProgress(progress)
                     ActivityWithProgress(activity, progress, activity.cardId?.let { cards[it]?.name }, activity.bankId?.let { banks[it]?.name })
                 }
                 val sorted = when (currentSort) {
@@ -124,7 +128,9 @@ class ActivityViewModel @Inject constructor(
             } else {
                 activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
             }
-            val progress = ActivityCalculator.calculateProgress(activity, transactions)
+            val existingProgress = progressRepo.getProgressByActivityIdSync(activity.id)
+            val progress = ActivityCalculator.calculateProgress(activity, transactions, existingProgress)
+            progressRepo.saveProgress(progress)
             _selectedActivity.value = ActivityDetail(activity, progress, activity.cardId?.let { cards[it]?.name }, activity.bankId?.let { banks[it]?.name }, transactions)
         }
     }

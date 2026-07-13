@@ -82,7 +82,9 @@ class DashboardViewModel @Inject constructor(
                 } else {
                     activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
                 }
-                val progress = ActivityCalculator.calculateProgress(activity, transactions)
+                val existingProgress = progressRepo.getProgressByActivityIdSync(activity.id)
+                val progress = ActivityCalculator.calculateProgress(activity, transactions, existingProgress)
+                progressRepo.saveProgress(progress)
                 val cardName = activity.cardId?.let { cid -> cards.find { it.id == cid }?.name }
                 val bankName = activity.bankId?.let { bid -> bankMap[bid]?.name }
                 val awp = ActivityWithProgress(activity, progress, cardName, bankName)

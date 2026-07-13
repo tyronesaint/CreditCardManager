@@ -50,9 +50,8 @@ class TransactionViewModel @Inject constructor(
             val activities = activityRepo.getAllActiveActivities().first()
             val allCards = cardRepo.getAllCards().first().associateBy { it.id }
             val matched = activities.mapNotNull { activity ->
-                // 银行级活动：需要传入该交易对应的卡片做 bankId 校验
                 val activityCard = if (activity.level == ActivityLevel.BANK) {
-                    allCards[cardId]  // 用当前交易选中的卡片
+                    allCards[cardId]
                 } else if (activity.level == ActivityLevel.CARD) {
                     activity.cardId?.let { allCards[it] }
                 } else null
@@ -71,7 +70,6 @@ class TransactionViewModel @Inject constructor(
             val allCards = cardRepo.getAllCards().first().associateBy { it.id }
             val today = LocalDate.now()
             for (activity in activities) {
-                // 银行级活动：传入该交易对应的卡片做 bankId 校验
                 val activityCard = if (activity.level == ActivityLevel.BANK) {
                     allCards[transaction.cardId]
                 } else if (activity.level == ActivityLevel.CARD) {
@@ -100,7 +98,9 @@ class TransactionViewModel @Inject constructor(
                         activity.cardId?.let { transactionRepo.getTransactionsByCardAndDateRange(it, start, end) } ?: emptyList()
                     }
                     val allTransactions = existingTransactions + transaction
-                    val progress = ActivityCalculator.calculateProgress(activity, allTransactions)
+                    // 获取现有进度用于连续达标累加
+                    val existingProgress = progressRepo.getProgressByActivityIdSync(activity.id)
+                    val progress = ActivityCalculator.calculateProgress(activity, allTransactions, existingProgress)
                     progressRepo.saveProgress(progress)
                 }
             }
