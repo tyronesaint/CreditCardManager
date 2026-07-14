@@ -4,6 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creditcardmanager.data.repository.*
+import com.creditcardmanager.model.ActivityProgress
+import com.creditcardmanager.model.enums.ActivityLevel
+import com.creditcardmanager.model.enums.PeriodType
+import com.creditcardmanager.utils.ActivityCalculator
+import com.creditcardmanager.utils.DateUtils
 import com.creditcardmanager.utils.ExportImportManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,8 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val activityRepo: ActivityRepository,
     private val reminderRepo: ReminderRepository,
     private val transactionRepo: TransactionRepository,
-    private val exportManager: ExportImportManager,
-    private val transactionViewModel: TransactionViewModel
+    private val progressRepo: ActivityProgressRepository,
+    private val exportManager: ExportImportManager
 ) : ViewModel() {
     private val _exportResult = MutableSharedFlow<String>()
     val exportResult: SharedFlow<String> = _exportResult.asSharedFlow()
@@ -61,7 +67,7 @@ class SettingsViewModel @Inject constructor(
                     activityRepo.saveActivities(data.activities)
                     reminderRepo.saveReminders(data.reminders)
                     data.transactions?.let { transactionRepo.saveTransactions(it) }
-                    transactionViewModel.recalculateAllActivities()
+                    recalculateAllActivities()
                     _importResult.emit(true)
                 } else {
                     Log.e("SettingsViewModel", "导入失败：JSON解析结果为空")
@@ -71,6 +77,57 @@ class SettingsViewModel @Inject constructor(
                 Log.e("SettingsViewModel", "导入失败", e)
                 _importResult.emit(false)
             }
+        }
+    }
+
+    private suspend fun recalculateAllActivities() {
+        val activities = activityRepo.getAllActiveActivities().first()
+        val allTransactions = transactionRepo.getAllTransactions().first()
+        val allCards = cardRepo.getAllCards().first().associateBy { it.id }
+        val today = LocalDate.now()
+
+        for (activity in activities) {
+            val (start, end) = when (activity.periodType) {
+                PeriodType.BIND_STATEMENT -> {
+                    val card = activity.cardId?.let { allCards[it] }
+                    if (card != null) {
+                        DateUtils.getStatementPeriod(card.statementDay, today)
+                    } else {
+                        DateUtils.getPeriodStart(PeriodType.NATURAL_MONTH, today) to
+                        DateUtils.getPeriodEnd(PeriodType.NATURAL_MONTH, today)
+                    }
+                }
+                else -> DateUtils.getPeriodStart(activity.periodType, today) to
+                        DateUtils.getPeriodEnd(activity.periodType, today)
+            }
+            val periodKey = if (activity.periodType == PeriodType.BIND_STATEMENT) {
+                "${start.year}-${String.format("%02d", start.monthValue)}"
+            } else {
+                DateUtils.getPeriodKey(activity.periodType)
+            }
+            val existingProgress = progressRepo.getProgressByActivityIdAndPeriodSync(activity.id, periodKey)
+            val activityTransactions = if (activity.level == ActivityLevel.BANK) {
+                if (activity.bankId != null) {
+                    buildList {
+                        for (c in allCards.values) {
+                            if (c.bankId == activity.bankId) {
+                                addAll(allTransactions.filter { it.cardId == c.id && it.spendDate in start..end })
+                            }
+                        }
+                    }
+                } else emptyList()
+            } else {
+                activity.cardId?.let { cardId ->
+                    allTransactions.filter { it.cardId == cardId && it.spendDate in start..end }
+                } ?: emptyList()
+            }
+            val progress = ActivityCalculator.calculateProgress(
+                activity = activity,
+                transactions = activityTransactions,
+                existingProgress = existingProgress,
+                periodKeyOverride = if (activity.periodType == PeriodType.BIND_STATEMENT) periodKey else null
+            )
+            progressRepo.saveProgress(progress)
         }
     }
 
