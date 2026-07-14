@@ -12,8 +12,8 @@ import com.creditcardmanager.data.local.entity.*
         TransactionEntity::class, ActivityEntity::class,
         ActivityProgressEntity::class, ReminderEntity::class
     ],
-    version = 1,
-    exportSchema = true
+    version = 2,
+    exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

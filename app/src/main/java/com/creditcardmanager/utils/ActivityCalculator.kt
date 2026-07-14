@@ -16,25 +16,20 @@ object ActivityCalculator {
         existingProgress: ActivityProgress? = null,
         periodKeyOverride: String? = null
     ): ActivityProgress {
-        // 1. 确定periodKey（BIND_STATEMENT必须用调用侧传的，避免之前的坑）
         val periodKey = if (activity.periodType == com.creditcardmanager.model.enums.PeriodType.BIND_STATEMENT) {
             periodKeyOverride ?: throw IllegalArgumentException("BIND_STATEMENT活动必须传periodKeyOverride")
         } else {
             DateUtils.getPeriodKey(activity.periodType)
         }
 
-        // 2. 提取手动调整的基准值（核心改动：旧消费不参与计算）
         val manualBaseline = existingProgress?.manualBaseline ?: 0.0
         val manualSince = existingProgress?.manualSince ?: 0L
         val today = LocalDate.now()
 
-        // 3. 只累加【手动调整之后】的新消费（旧消费直接排除，符合你"可有可无"的语义）
         val validTransactions = transactions.filter { txn ->
-            // 没手动调整过：全累加；调整过：只累加调整时间之后的消费
             manualSince == 0L || txn.spendDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC).toEpochMilli() >= manualSince
         }
 
-        // 4. 原有计算逻辑保留，只改累加的基础值
         var currentAmount = manualBaseline
         var currentCount = existingProgress?.currentCount ?: 0
         var currentCashback = 0.0
@@ -82,7 +77,6 @@ object ActivityCalculator {
                 isAchieved = if (monthlyCap > 0) currentCashback >= monthlyCap else false
             }
             ActivityType.CONTINUOUS_PERIOD -> {
-                // TODO: 跨期逻辑暂不改动（结构性坑，动的话容易炸，后续再优化）
                 val innerAchieved = when (activity.innerType) {
                     "amount_target" -> {
                         currentAmount += filteredTransactions.sumOf { it.amount }
@@ -139,7 +133,11 @@ object ActivityCalculator {
             currentCashback = currentCashback,
             todayCashback = todayCashback,
             isAchieved = isAchieved,
-            continuousDone = continuousDone
+            continuousDone = continuousDone,
+            manualBaseline = existingProgress?.manualBaseline,
+            baselineSource = existingProgress?.baselineSource,
+            manualSince = existingProgress?.manualSince,
+            updatedAt = System.currentTimeMillis()
         )
     }
 

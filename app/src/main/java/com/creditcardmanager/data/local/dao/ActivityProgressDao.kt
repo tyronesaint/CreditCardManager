@@ -10,6 +10,8 @@ interface ActivityProgressDao {
     fun getByActivityId(activityId: String): Flow<ActivityProgressEntity?>
     @Query("SELECT * FROM activity_progress WHERE activityId = :activityId")
     suspend fun getByActivityIdSync(activityId: String): ActivityProgressEntity?
+    @Query("SELECT * FROM activity_progress WHERE activityId = :activityId AND periodKey = :periodKey")
+    suspend fun getByActivityIdAndPeriodSync(activityId: String, periodKey: String): ActivityProgressEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(progress: ActivityProgressEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE)

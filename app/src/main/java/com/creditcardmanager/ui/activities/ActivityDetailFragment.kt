@@ -45,7 +45,6 @@ class ActivityDetailFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel.selectActivity(args.activityId)
         observeData()
-        // 长按 root 弹操作菜单（编辑/调整进度/归档/删除）
         binding.root.setOnLongClickListener {
             viewModel.selectedActivity.value?.activity?.let { showActionDialog(it) }
             true
@@ -66,7 +65,6 @@ class ActivityDetailFragment : Fragment() {
         val activity = detail.activity
         val progress = detail.progress
 
-        // 你 fragment_card_detail.xml 里的 ID 全都有，安全调用 ?. 兜底
         binding.tvCardName?.text = activity.name
         binding.tvBankName?.text = detail.bankName ?: detail.cardName ?: "通用活动"
         binding.tvCreditLimit?.text = "类型: ${activity.type.toDisplayName()}"
@@ -75,12 +73,11 @@ class ActivityDetailFragment : Fragment() {
         binding.tvInterestFree?.text = "进度: ${getProgressText(detail)}"
         binding.tvStatementAmount?.text = "¥${String.format("%.2f", progress.currentAmount)}"
 
-        // 手动调整提示（用 tvAnnualFee 这行，原本是年费规则，活动页没用，复用）
         binding.tvAnnualFee?.text = buildString {
             if (activity.isArchived) append("[已归档] ")
             if (progress.manualBaseline != null) {
                 val sdf = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-                val t = sdf.format(Date(progress.manualSince ?: 0))
+                val t = sdf.format(Date(progress.manualSince ?: 0L))
                 append("手动调整于$t 基准¥${String.format("%.2f", progress.manualBaseline)}")
             } else {
                 append("长按编辑/调整进度/删除")
@@ -134,7 +131,6 @@ class ActivityDetailFragment : Fragment() {
         }
     }
 
-    /** 调整进度弹窗 */
     private fun showAdjustProgressDialog() {
         val detail = viewModel.selectedActivity.value ?: return
         val activity = detail.activity
@@ -145,7 +141,6 @@ class ActivityDetailFragment : Fragment() {
         val etCashback = dialogView.findViewById<EditText>(R.id.et_cashback)
         val tvCurrent = dialogView.findViewById<TextView>(R.id.tv_current_progress)
 
-        // 按活动类型显隐输入框
         when (activity.type) {
             ActivityType.AMOUNT_TARGET, ActivityType.CASHBACK_RATE -> {
                 etCount.visibility = View.GONE
@@ -161,7 +156,6 @@ class ActivityDetailFragment : Fragment() {
             }
         }
 
-        // 当前 final 值（manualBaseline + 调整后以来新消费，这里垫 all 消费的 manualBaseline+txnSum 近似）
         val currentFinal = (progress.manualBaseline ?: 0.0) + when (activity.type) {
             ActivityType.AMOUNT_TARGET -> detail.transactions.sumOf { it.amount }
             ActivityType.COUNT_TARGET -> detail.transactions.size.toDouble()
@@ -176,7 +170,7 @@ class ActivityDetailFragment : Fragment() {
             else -> etAmount.setText(currentFinal.toString())
         }
 
-AlertDialog.Builder(requireContext())
+        AlertDialog.Builder(requireContext())
             .setTitle("调整进度")
             .setView(dialogView)
             .setPositiveButton("保存") { _, _ ->
@@ -207,11 +201,10 @@ AlertDialog.Builder(requireContext())
             .show()
     }
 
-    /** 长按 root 弹的操作菜单（编辑 / 调整进度 / 归档或恢复 / 删除） */
     private fun showActionDialog(activity: Activity) {
         val options = mutableListOf<String>()
         options.add("编辑活动")
-        options.add("调整进度")          // ← 新增，长按就能进
+        options.add("调整进度")
         if (activity.isArchived) {
             options.add("恢复活动")
             options.add("彻底删除")

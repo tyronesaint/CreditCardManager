@@ -2,6 +2,7 @@ package com.creditcardmanager.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.creditcardmanager.model.enums.CardStatus
 import com.creditcardmanager.model.enums.DueDayType
@@ -15,7 +16,8 @@ import com.creditcardmanager.model.enums.DueDayType
             childColumns = ["bankId"],
             onDelete = ForeignKey.CASCADE
         )
-    ]
+    ],
+    indices = [Index(value = ["bankId"])]
 )
 data class CardEntity(
     @PrimaryKey val id: String,

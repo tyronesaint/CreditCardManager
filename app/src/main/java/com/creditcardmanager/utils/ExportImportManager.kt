@@ -1,10 +1,10 @@
 package com.creditcardmanager.utils
 
 import android.content.Context
+import android.util.Log
 import com.creditcardmanager.model.ExportData
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import timber.log.Timber
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -39,7 +39,7 @@ class ExportImportManager(private val context: Context) {
         return try {
             gson.fromJson(json, ExportData::class.java)
         } catch (e: Exception) {
-            Timber.e(e, "JSON解析失败：%s", json.take(200))
+            Log.e("ExportImport", "JSON解析失败：${json.take(200)}", e)
             null
         }
     }

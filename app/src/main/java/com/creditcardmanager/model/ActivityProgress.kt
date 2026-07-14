@@ -12,5 +12,9 @@ data class ActivityProgress(
     val currentCashback: Double = 0.0,
     val todayCashback: Double = 0.0,
     val isAchieved: Boolean = false,
-    val continuousDone: Int = 0
+    val continuousDone: Int = 0,
+    val manualBaseline: Double? = null,
+    val baselineSource: String? = null,
+    val manualSince: Long? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 ) : Parcelable
